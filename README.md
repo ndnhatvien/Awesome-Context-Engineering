@@ -1,183 +1,382 @@
 # 🧠 Awesome Context Engineering (ACE)
 
-> **ACE** is a next-generation semantic retrieval engine and Context-Weaving MCP Server designed specifically for AI Coding Agents. By fusing Vector search and AST-based Lexical search, ACE builds high-precision, token-efficient context packages to supercharge AI developer workflows.
+> **ACE** là một semantic retrieval engine thế hệ mới được thiết kế đặc biệt cho AI Code Assistants. Kết hợp Vector Search và AST-based Lexical Search, ACE xây dựng context packages chính xác cao, tối ưu token để tăng cường quy trình phát triển AI.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Node.js Version](https://img.shields.io/badge/node-%3E%3D20%20%3C24-brightgreen)](https://nodejs.org/)
+[![Node.js Version](https://img.shields.io/badge/node-22-brightgreen)](https://nodejs.org/)
+[![pnpm](https://img.shields.io/badge/pnpm-workspace-orange)](https://pnpm.io/)
 
 ---
 
-## 📖 Table of Contents
-- [🚀 Quick Start](#-quick-start)
-- [✨ Core Features](#-core-features)
-- [🌐 Secure Web UI & Admin Dashboard](#-secure-web-ui--admin-dashboard)
-- [🛠️ CLI Command Reference](#️-cli-command-reference)
-- [🔌 Model Context Protocol (MCP) Integration](#-model-context-protocol-mcp-integration)
-- [🏗️ Pipeline Architecture](#️-pipeline-architecture)
-- [🔧 Configuration & Environment Variables](#-configuration--environment-variables)
-- [📄 License & Credits](#-license--credits)
+## 📖 Mục lục
+- [🚀 Bắt đầu nhanh](#-bắt-đầu-nhanh)
+- [✨ Tính năng chính](#-tính-năng-chính)
+- [🛠️ Lệnh CLI](#️-lệnh-cli)
+- [🔌 Tích hợp Model Context Protocol (MCP)](#-tích-hợp-model-context-protocol-mcp)
+- [🏗️ Kiến trúc Pipeline](#️-kiến-trúc-pipeline)
+- [🔧 Cấu hình & Biến môi trường](#-cấu-hình--biến-môi-trường)
+- [🧪 Development & Testing](#-development--testing)
+- [📄 License](#-license)
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Bắt đầu nhanh
 
-### 1. Installation
-Install the CLI tool globally:
+### 1. Clone & Cài đặt
 ```bash
-npm install -g @nv876620-design/ace-recall
+git clone https://github.com/ndnhatvien/Awesome-Context-Engineering.git
+cd Awesome-Context-Engineering
+pnpm install
 ```
 
-> **🌍 Cross-Platform Support**: Automatically works on Windows, macOS (Intel/Apple Silicon), and Linux (x64/arm64). Native dependencies are downloaded automatically during installation. See [Installation Guide](docs/INSTALLATION.md) for troubleshooting.
-
-### 2. Initialization
-Setup the environment configuration file:
+### 2. Build dự án
 ```bash
-ace-recall init
+pnpm build
 ```
-This initializes a configuration template under `~/.ace/.env`.
 
-### 3. Add API Keys
-Open `~/.ace/.env` and configure your API keys (SiliconFlow, Jina, OpenAI, etc.):
+### 3. Link CLI (optional - để sử dụng global)
+```bash
+pnpm link --global
+```
+
+### 4. Khởi tạo cấu hình
+```bash
+ace init
+```
+Tạo file cấu hình tại `~/.ace/.env`.
+
+### 5. Cấu hình API Keys
+Mở `~/.ace/.env` và thêm API keys:
 ```env
 EMBEDDINGS_API_KEYS=your-embedding-key-1,your-embedding-key-2
-RERANK_API_KEYS=your-reranker-key-here
-ACE_ADMIN_PASSWORD=admin
+RERANK_API_KEYS=your-reranker-key
+ACE_PROFILE=balanced  # quality | balanced | performance
+LOG_LEVEL=info        # debug | info | warn | error
 ```
 
-### 4. Index a Codebase
-Run the crawler and build the semantic vector index:
+### 6. Index codebase
 ```bash
-ace-recall index .
+ace index .
+# hoặc force rebuild
+ace index . -f
 ```
 
-### 5. Launch the Web UI & MCP Server
-Start the HTTP admin portal (running on port `9988` by default):
+### 7. Khởi động MCP Server
 ```bash
-ace-recall mcp-http --port 9988
+# Stdio mode (cho Claude Desktop)
+ace mcp
+
+# HTTP mode (cho web clients, mặc định port 3000)
+ace mcp-http --port 3000
 ```
 
 ---
 
-## ✨ Core Features
+## ✨ Tính năng chính
 
 ### 🔍 1. Hybrid Retrieval & RRF Fusion
-Fuses **Dense Vector Embeddings** (e.g., SiliconFlow, OpenAI, Jina) with **FTS5 Lexical Search** (BM25) using **Reciprocal Rank Fusion (RRF)**. Resolves semantic intents and exact keyword matching simultaneously.
+Kết hợp **Dense Vector Embeddings** với **FTS5 Lexical Search (BM25)** sử dụng **Reciprocal Rank Fusion (RRF)**. Xử lý đồng thời semantic intent và exact keyword matching.
 
 ### 📊 2. AST-Based Semantic Chunking
-Parses files into semantic abstract syntax tree nodes using **Tree-sitter** for 12+ programming languages. Respects logical scopes (classes, functions, methods) to prevent code truncation.
+Sử dụng **Tree-sitter** để parse file thành các semantic nodes cho 12+ ngôn ngữ lập trình. Tôn trọng logical scopes (classes, functions, methods) để tránh cắt xén code.
 
-### 🧠 3. Smart Context Expansion (E1 / E2 / E3)
-- **E1 (Neighbor Hops)**: Extracts adjacent chunks within the same source file.
-- **E2 (Breadcrumbs)**: Restores parent context scopes (e.g., namespace or class declarations).
-- **E3 (Import Resolution)**: Parses dependencies and references across TypeScript, Python, Go, Rust, Java, Kotlin, PHP, Ruby, Swift, Dart, and C/C++.
+### 🧠 3. Smart Context Expansion (E1/E2/E3)
+- **E1 (Neighbor Hops)**: Lấy các chunks liền kề trong cùng file
+- **E2 (Breadcrumbs)**: Khôi phục parent context scopes (namespace, class declarations)
+- **E3 (Import Resolution)**: Parse dependencies và references qua TypeScript, Python, Go, Rust, Java, Kotlin, PHP, Ruby, Swift, Dart, C/C++
 
-### 🤖 4. AI-Powered Developer Tooling
-- **Commit Messages**: Analyzes `git diff` and automatically generates Conventional Commits:
-  ```bash
-  git add .
-  ace-recall git-msg --style conventional
-  ```
-- **Task Detection**: Automatically discovers tasks defined in configuration files (npm scripts, Makefile, docker-compose, taskfile, etc.):
-  ```bash
-  ace-recall tasks
-  ```
+### 🎯 4. Impact Graph Analysis **[NEW]**
+Phân tích ảnh hưởng của code changes với dependency graph:
+- **Upstream Impact**: Tìm các functions/modules bị ảnh hưởng khi thay đổi một symbol
+- **Downstream Dependencies**: Trace dependencies của một function
+- **Change Impact Score**: Đánh giá mức độ ảnh hưởng dựa trên fan-out và coupling
+- **MCP Tool Integration**: Truy vấn impact graph qua MCP protocol
 
----
+### 🔧 5. Language Runtime Plugin System
+Kiến trúc plugin linh hoạt với pnpm workspace monorepo:
+- **Built-in Runtime**: JS/TS, Python, Go (tree-sitter 25)
+- **Plugin Packages**: Kotlin, Java, Rust, PHP, Ruby, Swift (dynamic load)
+- **Registry System**: Tự động fallback khi plugin không khả dụng
 
-## 🌐 Secure Web UI & Admin Dashboard
+### 🛡️ 6. Self-Healing Index
+Cơ chế tự động phát hiện và sửa lỗi index:
+- **Hash-based Change Detection**: Phát hiện file changes qua xxhash
+- **Monotonic Updates**: Thêm version mới trước khi xóa cũ, tránh gaps
+- **Doctor Command**: `ace doctor . --repair` sửa orphaned chunks
+- **Feedback Loop**: `ace feedback .` phân tích implicit feedback
 
-ACE features a premium dark-themed admin dashboard (Glassmorphism layout with smooth transitions) accessible at `http://127.0.0.1:9988`:
-
-- **🔒 Password Protection**: Secures dashboard operations with password authentication (defaults to `admin` if not set).
-- **🔑 Google OAuth 2.0 Integration**: Supports logging in with Google accounts for a secure, multi-user setup.
-- **🛡️ Token-based User Authentication**: Google-authenticated users can manage and regenerate their own persistent API Tokens (Bearer tokens) to authenticate MCP sessions.
-- **👁️ API Key Masking**: Automatically replaces active keys with masking characters (`*`) for security.
-- **📁 Directory Browser**: Browse and pick `Workspace Path` using a built-in visual folder browser.
-- **📈 System Monitoring**: Track server uptime, environment configurations, and active MCP status instantly.
-
----
-
-## 🛠️ CLI Command Reference
-
-| Command | Description |
-|---------|-------------|
-| `ace-recall init` | Creates the global `.env` file template under `~/.ace/.env` |
-| `ace-recall index [path]` | Scans and indexes the target codebase directory (use `-f` to force rebuild) |
-| `ace-recall search-context` | Performs interactive command-line searches on your indexed codebases |
-| `ace-recall tasks [path]` | Automatically discovers runnable tasks and commands in the workspace |
-| `ace-recall git-msg [path]` | Generates a commit message using the current staged Git changes |
-| `ace-recall mcp` | Starts the stdio-based MCP Server for IDE clients |
-| `ace-recall mcp-http` | Runs the HTTP Server including the Web UI and MCP SSE transport portal |
-| `ace-recall doctor [path]` | Checks consistency between FTS and Vector indices, with optional `--repair` |
+### 📦 7. Smart TopK với Multi-Guard Strategy
+Ngăn chặn low-score results tràn vào context:
+- **Anchor & Floor**: Dual threshold protection
+- **Delta Guard**: Tránh outlier Top1 scenarios
+- **Safe Harbor**: Đảm bảo minimum recall
+- **Hard Cap**: Token budget protection
 
 ---
 
-## 🔌 Model Context Protocol (MCP) Integration
+## 🛠️ Lệnh CLI
 
-### Claude Desktop Integration
-To use ACE as an MCP server with Claude Desktop, edit your configuration:
+| Lệnh | Mô tả |
+|------|-------|
+| `ace init` | Tạo file `.env` template tại `~/.ace/.env` |
+| `ace index [path]` | Index codebase (dùng `-f` để force rebuild) |
+| `ace search` | Interactive command-line search |
+| `ace mcp` | Khởi động MCP Server (stdio mode) cho IDE clients |
+| `ace mcp-http` | Khởi động MCP HTTP Server (default port 3000) |
+| `ace doctor [path]` | Kiểm tra tính nhất quán index, dùng `--repair` để tự động sửa |
+| `ace feedback [path]` | Phân tích implicit feedback (`--days 7 --top 10`) |
+| `ace tune <dataset>` | Offline auto-tuning (`--target mrr --k 1,3,5`) |
 
-- **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
-- **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+---
 
-Add the following config block:
+## 🔌 Tích hợp Model Context Protocol (MCP)
+
+### Cấu hình cho Claude Desktop
+
+**Windows**: `%APPDATA%\Claude\claude_desktop_config.json`  
+**macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
+
+Thêm cấu hình sau:
 ```json
 {
   "mcpServers": {
     "awesome-context-engineering": {
-      "command": "ace-recall",
+      "command": "ace",
       "args": ["mcp"]
     }
   }
 }
 ```
 
-### Available Tools
-1. `codebase-retrieval`: Semantically query the codebase.
-2. `file-retrieval`: Read and retrieve files.
-3. `generate-commit-message`: Generate commit messages from current staged diffs.
-4. `detect-tasks`: Auto-detect build scripts and workspace tasks.
+### MCP Tools có sẵn
+
+1. **`codebase-retrieval`**: Semantic search qua codebase
+   - Hybrid search (vector + lexical)
+   - Smart context expansion (E1/E2/E3)
+   - Token-aware packing
+
+2. **`codebase-impact`** **[NEW]**: Impact graph analysis
+   - Analyze upstream/downstream dependencies
+   - Calculate change impact scores
+   - Identify affected modules
+
+3. **`file-retrieval`**: Đọc và lấy nội dung file
+
+### MCP HTTP Server & Agent Routes **[NEW]**
+
+Khởi động HTTP server để expose RESTful API:
+```bash
+ace mcp-http --port 3000
+```
+
+**Agent Routes** (`/api/agents/*`):
+- `POST /api/agents/research`: Research agent với web search + synthesis
+- `POST /api/agents/code-review`: Code review agent
+- `POST /api/agents/architecture`: Architecture design agent
+
+Example request:
+```bash
+curl -X POST http://localhost:3000/api/agents/research \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query": "How does RRF fusion work?",
+    "projectPath": "/path/to/project"
+  }'
+```
 
 ---
 
-## 🏗️ Pipeline Architecture
+## 🏗️ Kiến trúc Pipeline
 
+### Index Pipeline
 ```
-[Index Pipeline]
-Crawler (gitignore-aware) ➔ Filter (extension whitelists) ➔ AST Semantic Splitter ➔ Embeddings Generator ➔ LanceDB (Vector) + SQLite (FTS5)
+Crawler (gitignore-aware) 
+  → Filter (extension whitelist + IGNORE_PATTERNS)
+  → Processor (xxhash fingerprint + change detection)
+  → SemanticSplitter (AST-based chunking với Tree-sitter)
+  → Embeddings Generator (batch + rate limiting + key rotation)
+  → LanceDB (vector store) + SQLite (FTS5 + metadata)
+```
 
-[Search Pipeline]
-User Query ➔ Hybrid Recall (Vector + BM25) ➔ RRF Fusion ➔ Rerank ➔ Graph Expander (Neighbor, Breadcrumb, Imports) ➔ Smart Context Packer ➔ Packaged Output
+### Search Pipeline
+```
+User Query
+  → Hybrid Recall (Vector Search + BM25 FTS)
+  → RRF Fusion (reciprocal rank fusion)
+  → Reranker (cross-encoder reranking)
+  → GraphExpander (E1: neighbors, E2: breadcrumbs, E3: imports)
+  → SmartTopK (multi-guard quality filtering)
+  → ContextPacker (same-file merging + token budget)
+  → Packaged Context Output
+```
+
+### Impact Graph Pipeline **[NEW]**
+```
+Source Files
+  → Language Extractors (TS/JS, Python, Go, etc.)
+  → Symbol Extractor (functions, classes, imports)
+  → Graph Builder (nodes: symbols, edges: dependencies)
+  → Graph Indexer (SQLite storage)
+  → Impact Analyzer (upstream/downstream traversal)
+  → Change Impact Score Calculation
+```
+
+### Monorepo Structure
+```
+packages/
+├── lang-typescript/    # TypeScript/JavaScript plugin
+├── lang-rust/          # Rust plugin
+├── lang-kotlin/        # Kotlin plugin
+└── lang-java/          # Java plugin
+
+src/
+├── config.ts           # Environment config loader (phải import đầu tiên!)
+├── search/             # Search service + GraphExpander + ContextPacker
+├── chunking/           # SemanticSplitter + runtime registry
+├── graph/              # Impact graph service + extractors **[NEW]**
+├── mcp/                # MCP servers (stdio + HTTP) + agent routes **[NEW]**
+├── api/                # Embedding/Reranker clients với rate limiting
+├── vectorStore/        # LanceDB adapter
+├── db/                 # SQLite + FTS5
+└── scanner/            # File crawler + filter + processor
 ```
 
 ---
 
-## 🔧 Configuration & Environment Variables
+## 🔧 Cấu hình & Biến môi trường
 
-Configure these settings inside `~/.ace/.env`:
+File cấu hình: `~/.ace/.env`
 
+### Embedding Configuration
 ```env
-# Embedding Models Config
-EMBEDDINGS_API_KEYS=key1,key2        # Multi-key rotation supported
-EMBEDDINGS_BASE_URL=https://...
+# Multi-key rotation (khuyến nghị)
+EMBEDDINGS_API_KEYS=key1,key2,key3
+EMBEDDINGS_BASE_URL=https://api.siliconflow.cn/v1
 EMBEDDINGS_MODEL=BAAI/bge-m3
 EMBEDDINGS_DIMENSIONS=1024
+EMBEDDINGS_MAX_CONCURRENCY=5
 
-# Reranker Config
-RERANK_API_KEYS=key1,key2
-RERANK_BASE_URL=https://...
-RERANK_MODEL=BAAI/bge-reranker-v2-m3
-
-# Admin Security
-ACE_ADMIN_PASSWORD=your-secure-password
+# Legacy single-key (vẫn được hỗ trợ)
+EMBEDDINGS_API_KEY=single-key
 ```
 
+### Reranker Configuration
+```env
+# Multi-key rotation (khuyến nghị)
+RERANK_API_KEYS=key1,key2,key3
+RERANK_BASE_URL=https://api.jina.ai/v1
+RERANK_MODEL=jina-reranker-v2-base-multilingual
+RERANK_TOP_N=10
+
+# Legacy single-key
+RERANK_API_KEY=single-key
+```
+
+### Profile & Logging
+```env
+# Profile: quality (chất lượng cao) | balanced (cân bằng) | performance (nhanh)
+ACE_PROFILE=balanced
+CODE_RECALL_PROFILE=balanced  # Tên cũ, vẫn được hỗ trợ
+
+# Logging
+LOG_LEVEL=info  # debug | info | warn | error
+# Debug logs → ~/.ace/logs/app.YYYY-MM-DD.log
+```
+
+### File Filtering
+```env
+# Thêm patterns để ignore
+IGNORE_PATTERNS=*.log,*.tmp,node_modules
+
+# Thêm patterns để include
+INCLUDE_PATTERNS=*.config.js,*.config.ts
+```
+
+### Config Loading Priority
+1. **Development mode** (`NODE_ENV=development/dev`): `cwd/.env` → `~/.ace/.env`
+2. **Production mode** (default): chỉ load `~/.ace/.env`
+3. **MCP mode**: auto-detect qua `process.argv[2] === 'mcp'`
+
+⚠️ **Quan trọng**: `src/config.ts` phải được import đầu tiên (xem `src/index.ts` line 3). Tất cả modules đọc config qua getter functions (`getEmbeddingConfig()`, `getRerankerConfig()`), **cấm trực tiếp đọc `process.env`**.
+
 ---
 
-## 📄 License & Credits
+## 🧪 Development & Testing
 
-- Distributed under the **MIT License**. See [LICENSE](LICENSE) for details.
-- Extended and rebranded from original **CodeRecall** by `alistar.max`. Built with TypeScript, Tree-sitter, LanceDB, and Model Context Protocol.
+### Build Commands
+```bash
+pnpm build                # Compile với sourcemap (development)
+pnpm build:release        # Compile không có sourcemap (production)
+pnpm dev                  # Watch mode development
+```
+
+### Code Quality
+```bash
+pnpm fmt                           # Biome format + auto-fix
+pnpm exec -- biome check ./src     # Check only (CI)
+pnpm tsc --noEmit                  # Type check (CI)
+```
+
+### Testing
+```bash
+# Toàn bộ tests
+pnpm test                          # Language parsers + runtime tests
+pnpm test:unit:all                 # test + benchmark tests
+
+# Runtime tests
+pnpm test:runtime                  # Chạy registry.test.ts
+tsx tests/runtime/graph-service.test.ts   # Chạy test cụ thể
+
+# E2E & Benchmark
+pnpm test:e2e:mcp                  # MCP end-to-end smoke test
+pnpm test:benchmark                # Offline benchmark + auto-tuning
+```
+
+### Benchmark & Tuning
+```bash
+pnpm benchmark:offline    # Recall@K / MRR / nDCG evaluation
+pnpm benchmark:tune       # Auto-tuning với RRF replay
+```
+
+### Local Development Setup
+```bash
+# 1. Clone repo
+git clone https://github.com/ndnhatvien/Awesome-Context-Engineering.git
+cd Awesome-Context-Engineering
+
+# 2. Install dependencies (Node.js 22 + pnpm)
+pnpm install
+
+# 3. Build packages
+pnpm build
+
+# 4. Link CLI globally (optional)
+pnpm link --global
+
+# 5. Run tests
+pnpm test
+
+# 6. Start development
+pnpm dev
+```
+
+### CI Pipeline
+```bash
+biome check → tsc --noEmit → pnpm build → pnpm test
+```
+
+Node version được cố định bởi `.node-version` (22).  
+CI sử dụng `pnpm install --frozen-lockfile`.
 
 ---
-Created with ❤️ by **Awesome Context Engineering** team.
+
+## 📄 License
+
+Distributed under the **MIT License**. See [LICENSE](LICENSE) for details.
+
+Extended and rebranded from original **CodeRecall** by `alistar.max`.  
+Built with TypeScript, Tree-sitter, LanceDB, and Model Context Protocol.
+
+---
+
+**Created with ❤️ by Awesome Context Engineering team**
