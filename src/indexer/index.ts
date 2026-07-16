@@ -12,6 +12,7 @@ import type Database from 'better-sqlite3';
 import { type EmbeddingClient, getEmbeddingClient } from '../api/embedding.js';
 import type { ProcessedChunk } from '../chunking/types.js';
 import { batchUpdateVectorIndexHash, clearVectorIndexHash } from '../db/index.js';
+import { deleteGraphDataForFile, indexFileGraph } from '../graph/indexer.js';
 import type { ProcessResult } from '../scanner/processor.js';
 import {
   batchDeleteFileChunksFts,
@@ -307,6 +308,11 @@ export class Indexer {
       '向量索引完成',
     );
 
+    // === 阶段: 图索引（MVP, best-effort）===
+    // Graph indexing runs after vector indexing is complete.
+    // Failures in graph indexing do not affect vector indexing success.
+    await this.indexGraphs(db, results);
+
     return stats;
   }
 
@@ -498,6 +504,67 @@ export class Indexer {
     logger.info({ success: totalSuccess, errors: totalErrors }, '批量索引完成');
 
     return { success: totalSuccess, errors: totalErrors };
+  }
+
+  /**
+   * Graph indexing (MVP, best-effort).
+   *
+   * Process files for graph extraction:
+   * - added/modified: extract graph nodes and edges
+   * - deleted: remove graph data
+   * - unchanged: skip if graph is up-to-date
+   *
+   * Graph failures do not affect vector indexing success.
+   */
+  private async indexGraphs(db: Database.Database, results: ProcessResult[]): Promise<void> {
+    let graphIndexed = 0;
+    let graphDeleted = 0;
+    let graphSkipped = 0;
+    let graphErrors = 0;
+
+    for (const result of results) {
+      try {
+        switch (result.status) {
+          case 'added':
+          case 'modified':
+            {
+              const success = await indexFileGraph(
+                db,
+                result.relPath,
+                result.hash,
+                result.language,
+                result.source,
+              );
+              if (success) {
+                graphIndexed++;
+              } else {
+                graphErrors++;
+              }
+            }
+            break;
+
+          case 'deleted':
+            deleteGraphDataForFile(db, result.relPath);
+            graphDeleted++;
+            break;
+
+          case 'unchanged':
+          case 'skipped':
+          case 'error':
+            graphSkipped++;
+            break;
+        }
+      } catch (err) {
+        // Graph extraction errors are logged but don't fail the indexing pipeline
+        logger.debug({ file: result.relPath, error: (err as Error).message }, 'Graph indexing error (ignored)');
+        graphErrors++;
+      }
+    }
+
+    logger.info(
+      { indexed: graphIndexed, deleted: graphDeleted, skipped: graphSkipped, errors: graphErrors },
+      '图索引完成 (best-effort)',
+    );
   }
 
   /**

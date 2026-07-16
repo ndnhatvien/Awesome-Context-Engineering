@@ -7,18 +7,23 @@ type PackageDefinition = {
   name: string;
 };
 
+const actualPkgAll = JSON.parse(
+  fs.readFileSync(path.resolve(process.cwd(), 'packages/lang-all/package.json'), 'utf8'),
+) as { name: string };
+const scope = actualPkgAll.name.split('/')[0];
+
 const packageDefinitions: PackageDefinition[] = [
-  { dir: 'lang-all', name: '@alistar.max/ace-lang-all' },
-  { dir: 'lang-typescript', name: '@alistar.max/ace-lang-typescript' },
-  { dir: 'lang-kotlin', name: '@alistar.max/ace-lang-kotlin' },
-  { dir: 'lang-csharp', name: '@alistar.max/ace-lang-csharp' },
-  { dir: 'lang-cpp', name: '@alistar.max/ace-lang-cpp' },
-  { dir: 'lang-java', name: '@alistar.max/ace-lang-java' },
-  { dir: 'lang-ruby', name: '@alistar.max/ace-lang-ruby' },
-  { dir: 'lang-c', name: '@alistar.max/ace-lang-c' },
-  { dir: 'lang-php', name: '@alistar.max/ace-lang-php' },
-  { dir: 'lang-rust', name: '@alistar.max/ace-lang-rust' },
-  { dir: 'lang-swift', name: '@alistar.max/ace-lang-swift' },
+  { dir: 'lang-all', name: `${scope}/ace-lang-all` },
+  { dir: 'lang-typescript', name: `${scope}/ace-lang-typescript` },
+  { dir: 'lang-kotlin', name: `${scope}/ace-lang-kotlin` },
+  { dir: 'lang-csharp', name: `${scope}/ace-lang-csharp` },
+  { dir: 'lang-cpp', name: `${scope}/ace-lang-cpp` },
+  { dir: 'lang-java', name: `${scope}/ace-lang-java` },
+  { dir: 'lang-ruby', name: `${scope}/ace-lang-ruby` },
+  { dir: 'lang-c', name: `${scope}/ace-lang-c` },
+  { dir: 'lang-php', name: `${scope}/ace-lang-php` },
+  { dir: 'lang-rust', name: `${scope}/ace-lang-rust` },
+  { dir: 'lang-swift', name: `${scope}/ace-lang-swift` },
 ];
 
 const requiredFiles = ['pnpm-workspace.yaml'];
@@ -33,12 +38,22 @@ for (const relativePath of requiredFiles) {
   assert.equal(fs.existsSync(filePath), true, `缺少文件: ${relativePath}`);
 }
 
-const workspaceContent = fs.readFileSync(path.resolve(process.cwd(), 'pnpm-workspace.yaml'), 'utf8');
-assert.equal(workspaceContent.includes('packages/*'), true, 'pnpm-workspace.yaml 必须包含 packages/*');
+const workspaceContent = fs.readFileSync(
+  path.resolve(process.cwd(), 'pnpm-workspace.yaml'),
+  'utf8',
+);
+assert.equal(
+  workspaceContent.includes('packages/*'),
+  true,
+  'pnpm-workspace.yaml 必须包含 packages/*',
+);
 
 for (const packageDefinition of packageDefinitions) {
   const pkg = JSON.parse(
-    fs.readFileSync(path.resolve(process.cwd(), `packages/${packageDefinition.dir}/package.json`), 'utf8'),
+    fs.readFileSync(
+      path.resolve(process.cwd(), `packages/${packageDefinition.dir}/package.json`),
+      'utf8',
+    ),
   ) as {
     name: string;
     exports?: {

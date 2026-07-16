@@ -91,7 +91,7 @@ export function authenticateMCP(req: Request, res: Response, next: NextFunction)
   // Fallback to legacy token manager for generated service tokens
   const verification = verifyToken(token);
 
-  if (!verification.valid) {
+  if (!verification.valid || !verification.userId || !verification.tokenId) {
     res.status(401).json({
       error: 'Unauthorized',
       message: 'Invalid or expired token',

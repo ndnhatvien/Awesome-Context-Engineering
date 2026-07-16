@@ -10,9 +10,11 @@ import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprot
 import { logger } from '../utils/logger.js';
 import {
   codebaseRetrievalSchema,
+  codebaseImpactSchema,
   detectTasksSchema,
   generateCommitMessageSchema,
   handleCodebaseRetrieval,
+  handleCodebaseImpact,
   handleDetectTasks,
   handleGenerateCommitMessage,
 } from './tools/index.js';
@@ -165,6 +167,67 @@ The tool returns a formatted list of all detected tasks with descriptions.
       required: ['repo_path'],
     },
   },
+  {
+    name: 'codebase-impact',
+    description: `
+Analyze the impact of code changes through structural dependency graph traversal.
+
+This tool predicts which tests and files are affected when you change a target file or symbol.
+It uses a best-effort graph built from TypeScript/JavaScript imports, calls, and test coverage.
+
+Use cases:
+- "Which tests should I run if I change this file?"
+- "What files depend on this function?"
+- "What's the blast radius of modifying this API?"
+- Pre-commit impact analysis
+
+Modes:
+- 'affected': Find all affected tests and files (default)
+- 'impact': Detailed impact analysis with dependency paths
+
+The tool returns:
+- Direct tests: Tests that directly import/call the target
+- Indirect tests: Tests affected through transitive dependencies
+- Affected files: Other source files that depend on the target
+- Impact paths: Visual representation of dependency chains (when include_paths=true)
+
+Note: Only TypeScript/JavaScript files are analyzed in the MVP. Graph must be built first with 'ace index'.
+`,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        repo_path: {
+          type: 'string',
+          description: 'The absolute file system path to the repository root',
+        },
+        target: {
+          oneOf: [
+            { type: 'string' },
+            { type: 'array', items: { type: 'string' } },
+          ],
+          description: 'Target file path, symbol path (file:symbol), or symbol name to analyze. Can be a single string or array of strings.',
+        },
+        mode: {
+          type: 'string',
+          enum: ['impact', 'affected'],
+          description: 'Analysis mode: "impact" for detailed paths, "affected" for test/file list (default: affected)',
+        },
+        depth: {
+          type: 'number',
+          description: 'Maximum traversal depth (1-10, default: 2)',
+        },
+        tests_only: {
+          type: 'boolean',
+          description: 'Only return affected tests, skip other files (default: false)',
+        },
+        include_paths: {
+          type: 'boolean',
+          description: 'Include impact paths showing dependency chains (default: false)',
+        },
+      },
+      required: ['repo_path', 'target'],
+    },
+  },
 ];
 
 // ===========================================
@@ -230,6 +293,10 @@ export async function startMcpServer(): Promise<void> {
         case 'codebase-retrieval': {
           const parsed = codebaseRetrievalSchema.parse(args);
           return await handleCodebaseRetrieval(parsed, undefined, onProgress);
+        }
+        case 'codebase-impact': {
+          const parsed = codebaseImpactSchema.parse(args);
+          return await handleCodebaseImpact(parsed);
         }
         case 'generate-commit-message': {
           const parsed = generateCommitMessageSchema.parse(args);

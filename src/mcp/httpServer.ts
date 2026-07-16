@@ -21,13 +21,16 @@ import {
 } from '../auth/adminAuth.js';
 import { createUser, getUserByEmail, initUsersDb, regenerateUserToken } from '../db/users.js';
 import { logger } from '../utils/logger.js';
+import { createAgentRoutes } from './agentRoutes.js';
 import { sessionManager } from './sessionManager.js';
 import { authenticateMCP, getAuthUser, requireAuth } from './sseAuth.js';
 import {
   codebaseRetrievalSchema,
+  codebaseImpactSchema,
   detectTasksSchema,
   generateCommitMessageSchema,
   handleCodebaseRetrieval,
+  handleCodebaseImpact,
   handleDetectTasks,
   handleGenerateCommitMessage,
 } from './tools/index.js';
@@ -153,6 +156,67 @@ Use cases:
       required: ['repo_path'],
     },
   },
+  {
+    name: 'codebase-impact',
+    description: `
+Analyze the impact of code changes through structural dependency graph traversal.
+
+This tool predicts which tests and files are affected when you change a target file or symbol.
+It uses a best-effort graph built from TypeScript/JavaScript imports, calls, and test coverage.
+
+Use cases:
+- "Which tests should I run if I change this file?"
+- "What files depend on this function?"
+- "What's the blast radius of modifying this API?"
+- Pre-commit impact analysis
+
+Modes:
+- 'affected': Find all affected tests and files (default)
+- 'impact': Detailed impact analysis with dependency paths
+
+The tool returns:
+- Direct tests: Tests that directly import/call the target
+- Indirect tests: Tests affected through transitive dependencies
+- Affected files: Other source files that depend on the target
+- Impact paths: Visual representation of dependency chains (when include_paths=true)
+
+Note: Only TypeScript/JavaScript files are analyzed in the MVP. Graph must be built first with 'ace index'.
+`,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        repo_path: {
+          type: 'string',
+          description: 'The absolute file system path to the repository root',
+        },
+        target: {
+          oneOf: [
+            { type: 'string' },
+            { type: 'array', items: { type: 'string' } },
+          ],
+          description: 'Target file path, symbol path (file:symbol), or symbol name to analyze',
+        },
+        mode: {
+          type: 'string',
+          enum: ['impact', 'affected'],
+          description: 'Analysis mode: "impact" for detailed paths, "affected" for test/file list (default: affected)',
+        },
+        depth: {
+          type: 'number',
+          description: 'Maximum traversal depth (1-10, default: 2)',
+        },
+        tests_only: {
+          type: 'boolean',
+          description: 'Only return affected tests, skip other files (default: false)',
+        },
+        include_paths: {
+          type: 'boolean',
+          description: 'Include impact paths showing dependency chains (default: false)',
+        },
+      },
+      required: ['repo_path', 'target'],
+    },
+  },
 ];
 
 /**
@@ -210,6 +274,10 @@ function createMcpServer(): Server {
         case 'codebase-retrieval': {
           const parsed = codebaseRetrievalSchema.parse(args);
           return await handleCodebaseRetrieval(parsed, undefined, onProgress);
+        }
+        case 'codebase-impact': {
+          const parsed = codebaseImpactSchema.parse(args);
+          return await handleCodebaseImpact(parsed);
         }
         case 'generate-commit-message': {
           const parsed = generateCommitMessageSchema.parse(args);
@@ -2141,6 +2209,30 @@ export function createHttpServerApp(_host = '127.0.0.1'): Express {
     res.json({ status: 'ok', service: 'ace-mcp-http', version: '1.0.0' });
   });
 
+  app.get('/context-canvas/list', (_req: Request, res: Response) => {
+    res.json({ status: 'ok', service: 'ace-mcp-http', version: '1.0.0' });
+  });
+
+  app.post('/context-canvas/list', (_req: Request, res: Response) => {
+    res.json({ status: 'ok', service: 'ace-mcp-http', version: '1.0.0' });
+  });
+
+  app.get('/get-implicit-external-sources', (_req: Request, res: Response) => {
+    res.json({ status: 'ok', service: 'ace-mcp-http', version: '1.0.0' });
+  });
+
+  app.post('/get-implicit-external-sources', (_req: Request, res: Response) => {
+    res.json({ status: 'ok', service: 'ace-mcp-http', version: '1.0.0' });
+  });
+
+  app.get('/search-external-sources', (_req: Request, res: Response) => {
+    res.json({ status: 'ok', service: 'ace-mcp-http', version: '1.0.0' });
+  });
+
+  app.post('/search-external-sources', (_req: Request, res: Response) => {
+    res.json({ status: 'ok', service: 'ace-mcp-http', version: '1.0.0' });
+  });
+
   // Folder browser API
   app.get('/admin/browse', (req: Request, res: Response) => {
     const config = getAdminAuthConfig();
@@ -2536,6 +2628,13 @@ export function createHttpServerApp(_host = '127.0.0.1'): Express {
   });
 
   // ========================================
+  // Agent Orchestration Endpoints
+  // ========================================
+
+  // Mount agent routes under /agents prefix (requires authentication)
+  app.use('/agents', requireAuth, createAgentRoutes());
+
+  // ========================================
   // MCP Session & SSE Endpoints
   // ========================================
 
@@ -2715,6 +2814,11 @@ export function createHttpServerApp(_host = '127.0.0.1'): Express {
             case 'codebase-retrieval': {
               const parsed = codebaseRetrievalSchema.parse(args);
               result = await handleCodebaseRetrieval(parsed, undefined, undefined);
+              break;
+            }
+            case 'codebase-impact': {
+              const parsed = codebaseImpactSchema.parse(args);
+              result = await handleCodebaseImpact(parsed);
               break;
             }
             case 'generate-commit-message': {
