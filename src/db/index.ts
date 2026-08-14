@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import Database from 'better-sqlite3';
+import { initSavingsLedger } from '../accounting/savingsLedger.js';
 import { initGraphTables } from '../graph/schema.js';
 import { ensureFeedbackTables } from '../search/feedbackLoop.js';
 import {
@@ -130,6 +131,9 @@ export function initDb(projectId: string): Database.Database {
 
   // 初始化 Impact Graph 表（MVP）
   initGraphTables(db);
+
+  // 初始化 Savings Ledger 表（Token/Cost Accounting）
+  initSavingsLedger(db);
 
   return db;
 }
