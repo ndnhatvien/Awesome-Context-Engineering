@@ -244,7 +244,7 @@ export class ImpactGraphService {
 
           // Calculate score for next level
           const edgeWeight = CONFIDENCE_WEIGHTS[edge.confidence];
-          const depthWeight = Math.pow(DEPTH_DECAY, current.depth + 1);
+          const depthWeight = DEPTH_DECAY ** (current.depth + 1);
           const testBonus = fromNode.filePath.includes('.test.') || fromNode.filePath.includes('.spec.') ? TEST_FILE_BONUS : 0;
           const newScore = edgeWeight * depthWeight + testBonus;
 

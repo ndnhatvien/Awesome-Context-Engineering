@@ -114,7 +114,14 @@ export function verifyToken(token: string): { valid: boolean; userId?: string; t
       WHERE token_hash = ?
     `);
 
-    const row = stmt.get(tokenHash) as any;
+    const row = stmt.get(tokenHash) as
+      | {
+          id: string;
+          user_id: string;
+          expires_at: number | null;
+          is_active: number;
+        }
+      | undefined;
 
     if (!row) {
       db.close();
@@ -164,7 +171,14 @@ export function listTokens(userId: string): Token[] {
     ORDER BY created_at DESC
   `);
 
-  const rows = stmt.all(userId) as any[];
+  const rows = stmt.all(userId) as Array<{
+    id: string;
+    user_id: string;
+    description: string | null;
+    created_at: number;
+    expires_at: number | null;
+    last_used_at: number | null;
+  }>;
   db.close();
 
   return rows.map((row) => ({
