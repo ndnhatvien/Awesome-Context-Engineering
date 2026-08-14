@@ -14,7 +14,7 @@
  */
 export function estimateTokens(text: string): number {
   if (!text) return 0;
-  
+
   // More accurate estimation considering:
   // - Spaces, punctuation (lighter weight)
   // - Code has different tokenization patterns
@@ -26,7 +26,7 @@ export function estimateTokens(text: string): number {
   
   // Code typically has more tokens per character due to symbols
   const charsPerToken = isCode ? 3.5 : 4;
-  
+
   return Math.ceil(chars / charsPerToken);
 }
 

@@ -125,7 +125,7 @@ export function getSavingsSummary(
       COUNT(DISTINCT session_id) as session_count
     FROM savings_ledger
     ${whereClause}
-  `
+  `,
     )
     .get(...params) as {
     total_tokens: number;
@@ -149,7 +149,7 @@ export function getSavingsSummary(
     FROM savings_ledger
     ${whereClause}
     GROUP BY bucket
-  `
+  `,
     )
     .all(...params) as Array<{
     bucket: SavingsBucket;
@@ -180,7 +180,7 @@ export function getSavingsSummary(
     FROM savings_ledger
     ${whereClause}
     GROUP BY model
-  `
+  `,
     )
     .all(...params) as Array<{
     model: string;
@@ -230,7 +230,7 @@ export function startSession(
     INSERT INTO savings_sessions (session_id, project_id, started_at, model)
     VALUES (?, ?, ?, ?)
     ON CONFLICT(session_id) DO NOTHING
-  `
+  `,
   ).run(sessionId, projectId, Date.now(), model);
 }
 
@@ -250,7 +250,7 @@ export function endSession(db: Database, sessionId: string): void {
       SUM(dollars_saved) as total_dollars
     FROM savings_ledger
     WHERE session_id = ?
-  `
+  `,
     )
     .get(sessionId) as {
     total_tokens: number;
@@ -265,7 +265,7 @@ export function endSession(db: Database, sessionId: string): void {
         total_tokens_saved = ?,
         total_dollars_saved = ?
     WHERE session_id = ?
-  `
+  `,
   ).run(Date.now(), totals.total_tokens || 0, totals.total_dollars || 0, sessionId);
 }
 
@@ -291,10 +291,11 @@ export function getSessionSummary(db: Database, sessionId: string): SessionSumma
       (SELECT COUNT(*) FROM savings_ledger WHERE session_id = ?) as event_count
     FROM savings_sessions
     WHERE session_id = ?
-  `
+  `,
     )
-    .get(sessionId, sessionId) as {
-    session_id: string;
+    .get(sessionId, sessionId) as
+    | {
+        session_id: string;
     project_id: string;
     started_at: number;
     ended_at: number | null;
@@ -302,7 +303,8 @@ export function getSessionSummary(db: Database, sessionId: string): SessionSumma
     total_tokens_saved: number;
     total_dollars_saved: number;
     event_count: number;
-  } | undefined;
+        }
+    | undefined;
 
   if (!row) return null;
 
@@ -326,11 +328,7 @@ export function getSessionSummary(db: Database, sessionId: string): SessionSumma
  * @param limit Maximum number of sessions to return
  * @returns Array of session summaries
  */
-export function listSessions(
-  db: Database,
-  projectId: string,
-  limit = 50
-): SessionSummary[] {
+export function listSessions(db: Database, projectId: string, limit = 50): SessionSummary[] {
   const rows = db
     .prepare(
       `
@@ -349,7 +347,7 @@ export function listSessions(
     GROUP BY s.session_id
     ORDER BY s.started_at DESC
     LIMIT ?
-  `
+  `,
     )
     .all(projectId, limit) as Array<{
     session_id: string;
