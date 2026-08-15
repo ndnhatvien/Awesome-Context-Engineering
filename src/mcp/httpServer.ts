@@ -22,6 +22,7 @@ import {
 import { createUser, getUserByEmail, initUsersDb, regenerateUserToken } from '../db/users.js';
 import { logger } from '../utils/logger.js';
 import { createAgentRoutes } from './agentRoutes.js';
+import { getDashboardStats } from '../dashboard/analyticsService.js';
 import { sessionManager } from './sessionManager.js';
 import { authenticateMCP, getAuthUser, requireAuth } from './sseAuth.js';
 import {
@@ -2268,6 +2269,25 @@ export function createHttpServerApp(_host = '127.0.0.1'): Express {
     }
   });
 
+  // Dashboard Statistics API
+  app.get('/api/dashboard/stats', (req: Request, res: Response) => {
+    const config = getAdminAuthConfig();
+    const sessionToken = (req as any).cookies?.ace_session;
+    const isAuthenticated = sessionToken && verifySessionToken(sessionToken, config.password!);
+
+    if (!isAuthenticated) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    try {
+      const stats = getDashboardStats();
+      res.json(stats);
+    } catch (err) {
+      logger.error({ error: (err as Error).message }, 'Failed to get dashboard stats');
+      res.status(500).json({ error: 'Failed to load statistics' });
+    }
+  });
+
   // Admin dashboard (GET /)
   app.get('/', async (req: Request, res: Response) => {
     const success = req.query.success === 'true';
@@ -2371,13 +2391,20 @@ export function createHttpServerApp(_host = '127.0.0.1'): Express {
       </div>
       <script>
         async function generateAdminToken() {
-          const res = await fetch('/admin/tokens', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: 'admin' }) });
-          if (res.ok) {
-            const data = await res.json();
-            document.getElementById('new-admin-token').innerText = 'New Token: ' + data.token + ' (Copy now!)';
-            document.getElementById('input-api-token').value = data.token;
-          } else {
-            alert('Error generating token');
+          try {
+            const res = await fetch('/admin/tokens', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: 'admin' }) });
+            if (res.ok) {
+              const data = await res.json();
+              document.getElementById('new-admin-token').innerText = 'New Token: ' + data.token + ' (Copy now!)';
+              document.getElementById('input-api-token').value = data.token;
+            } else {
+              const errorData = await res.json().catch(() => ({ error: 'Unknown error' }));
+              console.error('Error response:', errorData);
+              alert('Error generating token: ' + (errorData.error || res.statusText));
+            }
+          } catch (err) {
+            console.error('Exception:', err);
+            alert('Error generating token: ' + err.message);
           }
         }
         async function revokeTokens() {
@@ -2545,23 +2572,28 @@ export function createHttpServerApp(_host = '127.0.0.1'): Express {
     const isAuthenticated = sessionToken && verifySessionToken(sessionToken, config.password!);
 
     if (!isAuthenticated) {
+      logger.warn('Token generation failed: Unauthorized');
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
     try {
+      logger.info({ body: req.body }, 'Attempting to create token');
       const { createToken } = await import('../auth/tokenManager.js');
       const { userId, description, expiresInDays } = req.body;
 
       if (!userId || typeof userId !== 'string') {
+        logger.warn({ userId }, 'Token generation failed: userId is required');
         return res.status(400).json({ error: 'userId is required' });
       }
 
+      logger.info({ userId, description, expiresInDays }, 'Creating token with parameters');
       const result = createToken({
         userId,
         description: description || undefined,
         expiresInDays: expiresInDays ? parseInt(expiresInDays, 10) : undefined,
       });
 
+      logger.info({ tokenId: result.id, userId }, 'Token created successfully');
       res.json({
         success: true,
         token: result.token,
@@ -2569,8 +2601,13 @@ export function createHttpServerApp(_host = '127.0.0.1'): Express {
         userId,
       });
     } catch (err) {
-      logger.error({ error: (err as Error).message }, 'Failed to create token');
-      res.status(500).json({ error: 'Failed to create token' });
+      const error = err as Error;
+      logger.error({ 
+        error: error.message, 
+        stack: error.stack,
+        body: req.body 
+      }, 'Failed to create token');
+      res.status(500).json({ error: `Failed to create token: ${error.message}` });
     }
   });
 
