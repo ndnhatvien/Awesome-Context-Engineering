@@ -29,54 +29,54 @@ if (process.argv.includes('-v') || process.argv.includes('--version')) {
   process.exit(0);
 }
 
-cli.command('init', '初始化 ACE 配置').action(async () => {
+cli.command('init', 'Initialize ACE configuration').action(async () => {
   const configDir = getConfigBaseDir();
   const envFile = path.join(configDir, '.env');
 
-  logger.info('开始初始化 ACE...');
+  logger.info('Starting ACE initialization...');
 
-  // 创建配置目录
+  // Create config directory
   try {
     await fs.mkdir(configDir, { recursive: true });
-    logger.info(`创建配置目录: ${configDir}`);
+    logger.info(`Created config directory: ${configDir}`);
   } catch (err) {
     const error = err as { code?: string; message?: string; stack?: string };
     if (error.code !== 'EEXIST') {
-      logger.error({ err, stack: error.stack }, `创建配置目录失败: ${error.message}`);
+      logger.error({ err, stack: error.stack }, `Failed to create config directory: ${error.message}`);
       process.exit(1);
     }
-    logger.info(`配置目录已存在: ${configDir}`);
+    logger.info(`Config directory already exists: ${configDir}`);
   }
 
-  // 检查是否已存在 .env 文件
+  // Check if .env file already exists
   try {
     await fs.access(envFile);
-    logger.warn(`.env 文件已存在: ${envFile}`);
-    logger.info('初始化完成！');
+    logger.warn(`.env file already exists: ${envFile}`);
+    logger.info('Initialization complete!');
     return;
   } catch {
-    // 文件不存在，继续创建
+    // File doesn't exist, continue with creation
   }
 
-  // 写入默认 .env 配置
+  // Write default .env configuration
   try {
     await fs.writeFile(envFile, DEFAULT_ENV_TEMPLATE);
-    logger.info(`创建 .env 文件: ${envFile}`);
+    logger.info(`Created .env file: ${envFile}`);
   } catch (err) {
     const error = err as { message?: string; stack?: string };
-    logger.error({ err, stack: error.stack }, `创建 .env 文件失败: ${error.message}`);
+    logger.error({ err, stack: error.stack }, `Failed to create .env file: ${error.message}`);
     process.exit(1);
   }
 
-  logger.info('下一步操作:');
-  logger.info(`   1. 编辑配置文件: ${envFile}`);
-  logger.info('   2. 填写你的 API Key 和其他配置');
-  logger.info('初始化完成！');
+  logger.info('Next steps:');
+  logger.info(`   1. Edit config file: ${envFile}`);
+  logger.info('   2. Add your API keys and other settings');
+  logger.info('Initialization complete!');
 });
 
 cli
-  .command('index [path]', '扫描代码库并建立索引')
-  .option('-f, --force', '强制重新索引')
+  .command('index [path]', 'Scan codebase and build index')
+  .option('-f, --force', 'Force reindex')
   .action(async (targetPath: string | undefined, options: { force?: boolean }) => {
     const rootPath = targetPath ? path.resolve(targetPath) : process.cwd();
     const projectId = generateProjectId(rootPath);
