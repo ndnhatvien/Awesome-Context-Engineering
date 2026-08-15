@@ -47,7 +47,7 @@
   "dependencies": {
     "@lancedb/lancedb": "^0.22.0",
     "@modelcontextprotocol/sdk": "^1.25.1",
-    "better-sqlite3": "^12.5.0",
+    "better-sqlite3": "^13.0.3",
     "cac": "^6.7.14",
     "chardet": "^2.1.1",
     "dotenv": "^17.2.3",

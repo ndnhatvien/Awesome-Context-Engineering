@@ -1,0 +1,384 @@
+<!-- Dashboard Statistics Section -->
+<!-- Add this to ADMIN_HTML_TEMPLATE after the existing configuration cards -->
+
+<style>
+  .dashboard-stats {
+    margin-top: 48px;
+    padding-top: 32px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .stats-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+  }
+
+  .stats-header h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 0;
+  }
+
+  .refresh-btn {
+    padding: 8px 16px;
+    background: rgba(99, 102, 241, 0.1);
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    border-radius: 8px;
+    color: var(--primary);
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: all 0.2s;
+  }
+
+  .refresh-btn:hover {
+    background: rgba(99, 102, 241, 0.2);
+    transform: translateY(-1px);
+  }
+
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 24px;
+    margin-bottom: 24px;
+  }
+
+  .stat-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 16px;
+    padding: 24px;
+    backdrop-filter: blur(20px);
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+
+  .stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.4);
+  }
+
+  .stat-card-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .stat-icon {
+    font-size: 1.8rem;
+  }
+
+  .stat-card-title {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .stat-value {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+  }
+
+  .stat-label {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+  }
+
+  .stat-success { color: var(--success); }
+  .stat-warning { color: var(--warning); }
+  .stat-danger { color: var(--danger); }
+  .stat-primary { color: var(--primary); }
+
+  .mini-stats {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    margin-top: 16px;
+  }
+
+  .mini-stat {
+    text-align: center;
+    padding: 12px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+  }
+
+  .mini-stat-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+
+  .mini-stat-label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+  }
+
+  .language-chart {
+    background: var(--bg-card);
+    border: 1px solid var(--border-card);
+    border-radius: 16px;
+    padding: 24px;
+    backdrop-filter: blur(20px);
+  }
+
+  .language-chart h3 {
+    margin-bottom: 20px;
+    font-size: 1.1rem;
+  }
+
+  .language-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  .language-name {
+    min-width: 120px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--text-primary);
+  }
+
+  .language-bar-container {
+    flex: 1;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .language-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary), var(--primary-hover));
+    border-radius: 4px;
+    transition: width 0.5s ease;
+  }
+
+  .language-count {
+    min-width: 70px;
+    text-align: right;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+  }
+
+  .loading {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+
+  .loading .stat-value,
+  .loading .mini-stat-value {
+    animation: pulse 1.5s ease-in-out infinite;
+  }
+</style>
+
+<div class="dashboard-stats">
+  <div class="stats-header">
+    <h2>📊 Dashboard Statistics</h2>
+    <button class="refresh-btn" onclick="loadDashboardStats()">🔄 Refresh</button>
+  </div>
+
+  <div class="stats-grid">
+    <!-- Total Files -->
+    <div class="stat-card">
+      <div class="stat-card-header">
+        <span class="stat-icon">📁</span>
+        <div class="stat-card-title">Total Files</div>
+      </div>
+      <div class="stat-value stat-primary" id="stat-total-files">-</div>
+      <div class="stat-label">Indexed files in repository</div>
+    </div>
+
+    <!-- Total Chunks -->
+    <div class="stat-card">
+      <div class="stat-card-header">
+        <span class="stat-icon">🧩</span>
+        <div class="stat-card-title">Total Chunks</div>
+      </div>
+      <div class="stat-value stat-primary" id="stat-total-chunks">-</div>
+      <div class="stat-label">Semantic code chunks</div>
+    </div>
+
+    <!-- Database Size -->
+    <div class="stat-card">
+      <div class="stat-card-header">
+        <span class="stat-icon">💾</span>
+        <div class="stat-card-title">Database Size</div>
+      </div>
+      <div class="stat-value stat-primary" id="stat-db-size">-</div>
+      <div class="stat-label">Total storage used</div>
+    </div>
+
+    <!-- System Uptime -->
+    <div class="stat-card">
+      <div class="stat-card-header">
+        <span class="stat-icon">⏱️</span>
+        <div class="stat-card-title">System Uptime</div>
+      </div>
+      <div class="stat-value stat-success" id="stat-uptime">-</div>
+      <div class="stat-label" id="stat-node-version">Node.js version</div>
+    </div>
+  </div>
+
+  <!-- Token Statistics Card -->
+  <div class="stat-card" style="margin-bottom: 24px;">
+    <div class="stat-card-header">
+      <span class="stat-icon">🔑</span>
+      <div class="stat-card-title">Token Management</div>
+    </div>
+    <div class="mini-stats">
+      <div class="mini-stat">
+        <div class="mini-stat-value stat-success" id="stat-active-tokens">-</div>
+        <div class="mini-stat-label">Active</div>
+      </div>
+      <div class="mini-stat">
+        <div class="mini-stat-value" id="stat-total-tokens">-</div>
+        <div class="mini-stat-label">Total</div>
+      </div>
+      <div class="mini-stat">
+        <div class="mini-stat-value stat-danger" id="stat-revoked-tokens">-</div>
+        <div class="mini-stat-label">Revoked</div>
+      </div>
+      <div class="mini-stat">
+        <div class="mini-stat-value" id="stat-last-indexed">-</div>
+        <div class="mini-stat-label">Last Indexed</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Language Distribution -->
+  <div class="language-chart" id="language-chart-container">
+    <h3>🌐 Language Distribution</h3>
+    <div id="language-chart-content">
+      <div class="stat-label" style="text-align: center; padding: 40px;">Loading...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Dashboard Statistics JavaScript
+  let statsRefreshInterval = null;
+
+  async function loadDashboardStats() {
+    const cards = document.querySelectorAll('.stat-card, .language-chart');
+    cards.forEach(card => card.classList.add('loading'));
+
+    try {
+      const response = await fetch('/api/dashboard/stats');
+      if (!response.ok) {
+        throw new Error('Failed to load statistics');
+      }
+
+      const stats = await response.json();
+      updateDashboardUI(stats);
+    } catch (error) {
+      console.error('Error loading dashboard stats:', error);
+      // Show error in UI
+      document.getElementById('stat-total-files').innerText = 'Error';
+    } finally {
+      cards.forEach(card => card.classList.remove('loading'));
+    }
+  }
+
+  function updateDashboardUI(stats) {
+    // Index stats
+    document.getElementById('stat-total-files').innerText = formatNumber(stats.index.totalFiles);
+    document.getElementById('stat-total-chunks').innerText = formatNumber(stats.index.totalChunks);
+    document.getElementById('stat-db-size').innerText = stats.index.totalSize;
+
+    // System stats
+    document.getElementById('stat-uptime').innerText = stats.system.uptime;
+    document.getElementById('stat-node-version').innerText = stats.system.nodeVersion;
+
+    // Token stats
+    document.getElementById('stat-active-tokens').innerText = stats.tokens.activeTokens;
+    document.getElementById('stat-total-tokens').innerText = stats.tokens.totalTokens;
+    document.getElementById('stat-revoked-tokens').innerText = stats.tokens.revokedTokens;
+
+    // Last indexed
+    const lastIndexed = stats.index.lastIndexed 
+      ? formatTimeAgo(new Date(stats.index.lastIndexed))
+      : 'Never';
+    document.getElementById('stat-last-indexed').innerText = lastIndexed;
+
+    // Language distribution
+    updateLanguageChart(stats.index.languages);
+  }
+
+  function updateLanguageChart(languages) {
+    const container = document.getElementById('language-chart-content');
+    const entries = Object.entries(languages).sort((a, b) => b[1] - a[1]);
+    
+    if (entries.length === 0) {
+      container.innerHTML = '<div class="stat-label" style="text-align: center; padding: 40px;">No data available</div>';
+      return;
+    }
+
+    const maxCount = Math.max(...entries.map(e => e[1]));
+    let html = '';
+
+    for (const [lang, count] of entries.slice(0, 10)) {
+      const percentage = (count / maxCount) * 100;
+      html += `
+        <div class="language-item">
+          <div class="language-name">${escapeHtml(lang)}</div>
+          <div class="language-bar-container">
+            <div class="language-bar" style="width: ${percentage}%"></div>
+          </div>
+          <div class="language-count">${formatNumber(count)}</div>
+        </div>
+      `;
+    }
+
+    container.innerHTML = html;
+  }
+
+  function formatNumber(num) {
+    return new Intl.NumberFormat().format(num);
+  }
+
+  function formatTimeAgo(date) {
+    const seconds = Math.floor((new Date() - date) / 1000);
+    
+    if (seconds < 60) return 'Just now';
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+    return `${Math.floor(seconds / 86400)}d ago`;
+  }
+
+  function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  // Load stats on page load
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', loadDashboardStats);
+  } else {
+    loadDashboardStats();
+  }
+
+  // Auto-refresh every 30 seconds
+  statsRefreshInterval = setInterval(loadDashboardStats, 30000);
+
+  // Cleanup on page unload
+  window.addEventListener('beforeunload', () => {
+    if (statsRefreshInterval) {
+      clearInterval(statsRefreshInterval);
+    }
+  });
+</script>
