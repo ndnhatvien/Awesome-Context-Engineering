@@ -397,6 +397,19 @@ function maskApiKeys(keys: string): string {
     .join(', ');
 }
 
+/**
+ * Clean unprocessed template tags from HTML
+ */
+function cleanUnprocessedTags(html: string): string {
+  // Remove unprocessed conditional tags
+  let cleaned = html
+    .replace(/\{\{#if\s+\w+\}\}/g, '')
+    .replace(/\{\{else\}\}/g, '')
+    .replace(/\{\{\/if\}\}/g, '');
+  
+  return cleaned;
+}
+
 const LOGIN_HTML_TEMPLATE = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2450,7 +2463,9 @@ export function createHttpServerApp(_host = '127.0.0.1'): Express {
       )
       .replace(/\{\{envFilePath\}\}/g, escapeHtml(envFilePath));
 
-    res.send(html);
+    // Clean any unprocessed template tags before sending
+    const cleanHtml = cleanUnprocessedTags(html);
+    res.send(cleanHtml);
   });
 
   // Admin Login Action
