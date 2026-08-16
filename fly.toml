@@ -1,9 +1,9 @@
-# fly.toml app configuration file for ACE (ace-recall)
+# fly.toml app configuration file generated for awesome-context-engineering on 2026-08-16T12:55:13Z
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 #
 
-app = 'ace-recall'
+app = 'awesome-context-engineering'
 primary_region = 'sin'
 
 [build]
