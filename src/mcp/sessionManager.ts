@@ -124,7 +124,7 @@ class SessionManager {
   /**
    * Send SSE event to session
    */
-  sendSSE(sessionId: string, event: string, data: any): boolean {
+  sendSSE(sessionId: string, event: string, data: unknown): boolean {
     const session = this.sessions.get(sessionId);
 
     if (!session || !session.sseResponse || !session.isConnected) {
@@ -145,7 +145,7 @@ class SessionManager {
   /**
    * Broadcast message to all sessions of a user
    */
-  broadcastToUser(userId: string, event: string, data: any): number {
+  broadcastToUser(userId: string, event: string, data: unknown): number {
     let sent = 0;
     for (const [sessionId, session] of this.sessions.entries()) {
       if (session.userId === userId && session.isConnected) {

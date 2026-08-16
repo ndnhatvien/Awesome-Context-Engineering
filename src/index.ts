@@ -145,8 +145,6 @@ cli.command('mcp', '启动 MCP 服务器 (stdio)').action(async () => {
   }
 });
 
-
-
 cli
   .command('search-context', '本地检索（参数对齐 MCP）')
   .option('--repo-path <path>', '代码库根目录（默认当前目录）')

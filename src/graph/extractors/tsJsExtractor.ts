@@ -323,7 +323,8 @@ function extractCalls(
   const queue: Parser.SyntaxNode[] = [bodyNode];
 
   while (queue.length > 0) {
-    const node = queue.shift()!;
+    const node = queue.shift();
+    if (!node) continue;
 
     if (node.type === 'call_expression') {
       const functionNode = node.childForFieldName('function');
