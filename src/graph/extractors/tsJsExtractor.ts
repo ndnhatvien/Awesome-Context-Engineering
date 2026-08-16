@@ -261,7 +261,7 @@ function extractMethods(
   edges: GraphEdge[],
   source: string,
 ): void {
-  const fileNodeId = makeFileNodeId(filePath);
+  const _fileNodeId = makeFileNodeId(filePath);
 
   for (let i = 0; i < classBodyNode.childCount; i++) {
     const child = classBodyNode.child(i);
@@ -286,7 +286,12 @@ function extractMethods(
         });
 
         // Contains edge: class -> method
-        const classId = makeSymbolNodeId(filePath, className, child.startPosition.row + 1, child.endPosition.row + 1);
+        const classId = makeSymbolNodeId(
+          filePath,
+          className,
+          child.startPosition.row + 1,
+          child.endPosition.row + 1,
+        );
         edges.push({
           id: `${classId}->${methodId}`,
           fromId: classId,

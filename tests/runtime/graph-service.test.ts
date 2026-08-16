@@ -22,29 +22,133 @@ initGraphTables(db);
 // test file -> test1 -> imports B -> calls bar
 
 const nodes: GraphNode[] = [
-  { id: 'file:a', kind: 'file', name: 'a.ts', filePath: 'src/a.ts', language: 'typescript', fileHash: 'a1' },
-  { id: 'sym:a:foo', kind: 'function', name: 'foo', filePath: 'src/a.ts', startLine: 1, endLine: 3, language: 'typescript', fileHash: 'a1' },
+  {
+    id: 'file:a',
+    kind: 'file',
+    name: 'a.ts',
+    filePath: 'src/a.ts',
+    language: 'typescript',
+    fileHash: 'a1',
+  },
+  {
+    id: 'sym:a:foo',
+    kind: 'function',
+    name: 'foo',
+    filePath: 'src/a.ts',
+    startLine: 1,
+    endLine: 3,
+    language: 'typescript',
+    fileHash: 'a1',
+  },
 
-  { id: 'file:b', kind: 'file', name: 'b.ts', filePath: 'src/b.ts', language: 'typescript', fileHash: 'b1' },
-  { id: 'sym:b:bar', kind: 'function', name: 'bar', filePath: 'src/b.ts', startLine: 1, endLine: 5, language: 'typescript', fileHash: 'b1' },
+  {
+    id: 'file:b',
+    kind: 'file',
+    name: 'b.ts',
+    filePath: 'src/b.ts',
+    language: 'typescript',
+    fileHash: 'b1',
+  },
+  {
+    id: 'sym:b:bar',
+    kind: 'function',
+    name: 'bar',
+    filePath: 'src/b.ts',
+    startLine: 1,
+    endLine: 5,
+    language: 'typescript',
+    fileHash: 'b1',
+  },
 
-  { id: 'file:test', kind: 'file', name: 'test.ts', filePath: 'src/test.ts', language: 'typescript', fileHash: 't1' },
-  { id: 'test:test:test1', kind: 'test', name: 'test case 1', filePath: 'src/test.ts', startLine: 3, endLine: 6, language: 'typescript', fileHash: 't1' },
+  {
+    id: 'file:test',
+    kind: 'file',
+    name: 'test.ts',
+    filePath: 'src/test.ts',
+    language: 'typescript',
+    fileHash: 't1',
+  },
+  {
+    id: 'test:test:test1',
+    kind: 'test',
+    name: 'test case 1',
+    filePath: 'src/test.ts',
+    startLine: 3,
+    endLine: 6,
+    language: 'typescript',
+    fileHash: 't1',
+  },
 ];
 
 const edges: GraphEdge[] = [
   // Containment
-  { id: 'e1', fromId: 'file:a', toId: 'sym:a:foo', kind: 'contains', filePath: 'src/a.ts', confidence: 'exact', fileHash: 'a1' },
-  { id: 'e2', fromId: 'file:b', toId: 'sym:b:bar', kind: 'contains', filePath: 'src/b.ts', confidence: 'exact', fileHash: 'b1' },
-  { id: 'e3', fromId: 'file:test', toId: 'test:test:test1', kind: 'contains', filePath: 'src/test.ts', confidence: 'exact', fileHash: 't1' },
+  {
+    id: 'e1',
+    fromId: 'file:a',
+    toId: 'sym:a:foo',
+    kind: 'contains',
+    filePath: 'src/a.ts',
+    confidence: 'exact',
+    fileHash: 'a1',
+  },
+  {
+    id: 'e2',
+    fromId: 'file:b',
+    toId: 'sym:b:bar',
+    kind: 'contains',
+    filePath: 'src/b.ts',
+    confidence: 'exact',
+    fileHash: 'b1',
+  },
+  {
+    id: 'e3',
+    fromId: 'file:test',
+    toId: 'test:test:test1',
+    kind: 'contains',
+    filePath: 'src/test.ts',
+    confidence: 'exact',
+    fileHash: 't1',
+  },
 
   // Imports (file level dependencies)
-  { id: 'e4', fromId: 'file:b', toId: 'file:a', kind: 'imports', filePath: 'src/b.ts', confidence: 'exact', fileHash: 'b1' },
-  { id: 'e5', fromId: 'file:test', toId: 'file:b', kind: 'imports', filePath: 'src/test.ts', confidence: 'exact', fileHash: 't1' },
+  {
+    id: 'e4',
+    fromId: 'file:b',
+    toId: 'file:a',
+    kind: 'imports',
+    filePath: 'src/b.ts',
+    confidence: 'exact',
+    fileHash: 'b1',
+  },
+  {
+    id: 'e5',
+    fromId: 'file:test',
+    toId: 'file:b',
+    kind: 'imports',
+    filePath: 'src/test.ts',
+    confidence: 'exact',
+    fileHash: 't1',
+  },
 
   // Calls (function level dependencies)
-  { id: 'e6', fromId: 'sym:b:bar', toId: 'sym:a:foo', kind: 'calls', filePath: 'src/b.ts', confidence: 'heuristic', fileHash: 'b1' },
-  { id: 'e7', fromId: 'test:test:test1', toId: 'sym:b:bar', kind: 'calls', filePath: 'src/test.ts', confidence: 'heuristic', fileHash: 't1' },
+  {
+    id: 'e6',
+    fromId: 'sym:b:bar',
+    toId: 'sym:a:foo',
+    kind: 'calls',
+    filePath: 'src/b.ts',
+    confidence: 'heuristic',
+    fileHash: 'b1',
+  },
+  {
+    id: 'e7',
+    fromId: 'test:test:test1',
+    toId: 'sym:b:bar',
+    kind: 'calls',
+    filePath: 'src/test.ts',
+    confidence: 'heuristic',
+    fileHash: 't1',
+  },
 ];
 
 upsertGraphNodes(db, nodes);
@@ -107,7 +211,11 @@ const testsOnlyImpact = await service.analyzeImpact(['src/a.ts'], {
   testsOnly: true,
 });
 
-assert.equal(testsOnlyImpact.affectedFiles.length, 0, 'Should not return affected files in tests-only mode');
+assert.equal(
+  testsOnlyImpact.affectedFiles.length,
+  0,
+  'Should not return affected files in tests-only mode',
+);
 
 // Test 7: Multiple targets
 const multiTargetImpact = await service.analyzeImpact(['src/a.ts', 'src/b.ts'], { depth: 2 });

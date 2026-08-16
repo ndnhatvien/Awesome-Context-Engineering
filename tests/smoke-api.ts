@@ -5,7 +5,12 @@
  */
 
 import '../src/config.js'; // Load .env
-import { checkEmbeddingEnv, checkRerankerEnv, getEmbeddingConfig, getRerankerConfig } from '../src/config.js';
+import {
+  checkEmbeddingEnv,
+  checkRerankerEnv,
+  getEmbeddingConfig,
+  getRerankerConfig,
+} from '../src/config.js';
 
 async function testEmbeddingAPI() {
   console.log('\n========================================');
@@ -48,7 +53,7 @@ async function testEmbeddingAPI() {
     });
 
     const elapsed = Date.now() - startMs;
-    const data = await res.json() as any;
+    const data = (await res.json()) as any;
 
     if (!res.ok) {
       console.log(`❌ HTTP ${res.status}: ${JSON.stringify(data).slice(0, 300)}`);
@@ -63,7 +68,12 @@ async function testEmbeddingAPI() {
 
     console.log(`✅ Embedding API OK (${elapsed}ms)`);
     console.log(`   Vector dimensions: ${embedding.length}`);
-    console.log(`   First 5 values: [${embedding.slice(0, 5).map((v: number) => v.toFixed(6)).join(', ')}]`);
+    console.log(
+      `   First 5 values: [${embedding
+        .slice(0, 5)
+        .map((v: number) => v.toFixed(6))
+        .join(', ')}]`,
+    );
     console.log(`   Usage: ${JSON.stringify(data.usage ?? 'N/A')}`);
     return true;
   } catch (err) {
@@ -119,7 +129,7 @@ async function testRerankerAPI() {
     });
 
     const elapsed = Date.now() - startMs;
-    const data = await res.json() as any;
+    const data = (await res.json()) as any;
 
     if (!res.ok) {
       console.log(`❌ HTTP ${res.status}: ${JSON.stringify(data).slice(0, 300)}`);
@@ -136,7 +146,9 @@ async function testRerankerAPI() {
     console.log(`   Results (top ${results.length}):`);
     for (const r of results) {
       const doc = body.documents[r.index];
-      console.log(`     #${r.index} score=${r.relevance_score?.toFixed(6) ?? 'N/A'} → "${doc.slice(0, 60)}..."`);
+      console.log(
+        `     #${r.index} score=${r.relevance_score?.toFixed(6) ?? 'N/A'} → "${doc.slice(0, 60)}..."`,
+      );
     }
     console.log(`   Usage: ${JSON.stringify(data.usage ?? data.meta ?? 'N/A')}`);
     return true;

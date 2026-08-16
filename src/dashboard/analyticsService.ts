@@ -3,9 +3,9 @@
  * Provides real-time statistics and metrics for the ACE dashboard
  */
 
-import Database from 'better-sqlite3';
 import { existsSync, statSync } from 'node:fs';
 import path from 'node:path';
+import Database from 'better-sqlite3';
 import { getDataBaseDir } from '../utils/paths.js';
 
 export interface DashboardStats {
@@ -53,7 +53,7 @@ export interface DashboardStats {
  */
 export function getIndexStats(): DashboardStats['index'] {
   const dbPath = path.join(getDataBaseDir(), 'index.db');
-  
+
   if (!existsSync(dbPath)) {
     return {
       totalFiles: 0,
@@ -68,11 +68,15 @@ export function getIndexStats(): DashboardStats['index'] {
 
   try {
     // Total files
-    const filesResult = db.prepare('SELECT COUNT(DISTINCT file_path) as count FROM chunks').get() as { count: number };
+    const filesResult = db
+      .prepare('SELECT COUNT(DISTINCT file_path) as count FROM chunks')
+      .get() as { count: number };
     const totalFiles = filesResult.count;
 
     // Total chunks
-    const chunksResult = db.prepare('SELECT COUNT(*) as count FROM chunks').get() as { count: number };
+    const chunksResult = db.prepare('SELECT COUNT(*) as count FROM chunks').get() as {
+      count: number;
+    };
     const totalChunks = chunksResult.count;
 
     // Database size
@@ -80,16 +84,22 @@ export function getIndexStats(): DashboardStats['index'] {
     const totalSize = formatBytes(stats.size);
 
     // Last indexed
-    const lastIndexedResult = db.prepare('SELECT MAX(indexed_at) as last FROM chunks').get() as { last: number | null };
-    const lastIndexed = lastIndexedResult.last ? new Date(lastIndexedResult.last).toISOString() : null;
+    const lastIndexedResult = db.prepare('SELECT MAX(indexed_at) as last FROM chunks').get() as {
+      last: number | null;
+    };
+    const lastIndexed = lastIndexedResult.last
+      ? new Date(lastIndexedResult.last).toISOString()
+      : null;
 
     // Languages distribution
-    const languagesResult = db.prepare(`
+    const languagesResult = db
+      .prepare(`
       SELECT language, COUNT(*) as count 
       FROM chunks 
       GROUP BY language 
       ORDER BY count DESC
-    `).all() as Array<{ language: string; count: number }>;
+    `)
+      .all() as Array<{ language: string; count: number }>;
 
     const languages: Record<string, number> = {};
     for (const row of languagesResult) {
@@ -113,7 +123,7 @@ export function getIndexStats(): DashboardStats['index'] {
  */
 export function getTokenStats(): DashboardStats['tokens'] {
   const dbPath = path.join(getDataBaseDir(), 'tokens.db');
-  
+
   if (!existsSync(dbPath)) {
     return {
       totalTokens: 0,
@@ -127,27 +137,33 @@ export function getTokenStats(): DashboardStats['tokens'] {
 
   try {
     // Total tokens
-    const totalResult = db.prepare('SELECT COUNT(*) as count FROM tokens').get() as { count: number };
+    const totalResult = db.prepare('SELECT COUNT(*) as count FROM tokens').get() as {
+      count: number;
+    };
     const totalTokens = totalResult.count;
 
     // Active tokens
-    const activeResult = db.prepare('SELECT COUNT(*) as count FROM tokens WHERE is_active = 1').get() as { count: number };
+    const activeResult = db
+      .prepare('SELECT COUNT(*) as count FROM tokens WHERE is_active = 1')
+      .get() as { count: number };
     const activeTokens = activeResult.count;
 
     // Revoked tokens
     const revokedTokens = totalTokens - activeTokens;
 
     // Recent activity
-    const activityResult = db.prepare(`
+    const activityResult = db
+      .prepare(`
       SELECT user_id, last_used_at, COUNT(*) as count
       FROM tokens
       WHERE last_used_at IS NOT NULL
       GROUP BY user_id
       ORDER BY last_used_at DESC
       LIMIT 10
-    `).all() as Array<{ user_id: string; last_used_at: number; count: number }>;
+    `)
+      .all() as Array<{ user_id: string; last_used_at: number; count: number }>;
 
-    const recentActivity = activityResult.map(row => ({
+    const recentActivity = activityResult.map((row) => ({
       userId: row.user_id,
       lastUsed: new Date(row.last_used_at).toISOString(),
       count: row.count,
@@ -226,7 +242,7 @@ function formatBytes(bytes: number): string {
   const k = 1024;
   const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`;
+  return `${parseFloat((bytes / k ** i).toFixed(2))} ${sizes[i]}`;
 }
 
 /**
@@ -236,11 +252,11 @@ function formatUptime(seconds: number): string {
   const days = Math.floor(seconds / 86400);
   const hours = Math.floor((seconds % 86400) / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
-  
+
   const parts: string[] = [];
   if (days > 0) parts.push(`${days}d`);
   if (hours > 0) parts.push(`${hours}h`);
   if (minutes > 0) parts.push(`${minutes}m`);
-  
+
   return parts.length > 0 ? parts.join(' ') : '< 1m';
 }

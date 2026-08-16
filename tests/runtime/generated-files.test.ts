@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { isGeneratedFile, applyGeneratedFilePenalty } from '../../src/scanner/generatedFiles.js';
+import { applyGeneratedFilePenalty, isGeneratedFile } from '../../src/scanner/generatedFiles.js';
 
 test('isGeneratedFile - positive cases (generated files)', () => {
   const generatedFiles = [

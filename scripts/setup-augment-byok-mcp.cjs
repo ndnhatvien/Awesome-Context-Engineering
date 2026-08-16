@@ -6,13 +6,13 @@
  * Tự động generate config cho Augment-BYOK với ACE MCP server
  */
 
-const fs = require('fs');
-const path = require('path');
-const readline = require('readline');
+const fs = require('node:fs');
+const path = require('node:path');
+const readline = require('node:readline');
 
 const rl = readline.createInterface({
   input: process.stdin,
-  output: process.stdout
+  output: process.stdout,
 });
 
 function prompt(question) {
@@ -73,10 +73,7 @@ async function main() {
   console.log('3. after    - Augment context → ACE → LLM (supplementary)');
 
   const modeChoice = await prompt('\nChoose mode (1-3, default=1): ');
-  const injectPosition =
-    modeChoice === '2' ? 'before' :
-    modeChoice === '3' ? 'after' :
-    'replace';
+  const injectPosition = modeChoice === '2' ? 'before' : modeChoice === '3' ? 'after' : 'replace';
 
   // Generate config
   console.log('\n🔧 Generating config...\n');
@@ -92,32 +89,39 @@ async function main() {
           command: 'node',
           args: [
             finalPath.replace(/\\/g, '\\\\'), // Escape backslashes for Windows
-            'mcp'
+            'mcp',
           ],
-          env: {}
-        }
-      ]
+          env: {},
+        },
+      ],
     },
     providers: [
       {
         id: providerId,
         type: providerType,
-        baseUrl: providerId === 'anthropic' ? 'https://api.anthropic.com' : 'https://api.openai.com/v1',
+        baseUrl:
+          providerId === 'anthropic' ? 'https://api.anthropic.com' : 'https://api.openai.com/v1',
         apiKey: apiKey,
         models: models,
-        defaultModel: defaultModel
-      }
+        defaultModel: defaultModel,
+      },
     ],
     routing: {
       rules: {
         '/chat': { mode: 'byok' },
-        '/chat-stream': { mode: 'byok' }
-      }
-    }
+        '/chat-stream': { mode: 'byok' },
+      },
+    },
   };
 
   // Write to Augment-BYOK repo
-  const augmentByokPath = path.join(__dirname, '..', '..', 'Augment-BYOK', '.augment-byok.config.json');
+  const augmentByokPath = path.join(
+    __dirname,
+    '..',
+    '..',
+    'Augment-BYOK',
+    '.augment-byok.config.json',
+  );
   const augmentByokDir = path.dirname(augmentByokPath);
 
   if (!fs.existsSync(augmentByokDir)) {
@@ -143,7 +147,7 @@ async function main() {
   console.log(`API Key:         ${apiKey.slice(0, 10)}...${apiKey.slice(-4)}`);
   console.log(`Models:          ${models.join(', ')}`);
   console.log(`Default Model:   ${defaultModel}`);
-  console.log(`MCP Server:      ace`);
+  console.log('MCP Server:      ace');
   console.log(`MCP Command:     node ${finalPath}`);
   console.log(`Inject Position: ${injectPosition}`);
   console.log('');
@@ -176,7 +180,7 @@ async function main() {
   rl.close();
 }
 
-main().catch(err => {
+main().catch((err) => {
   console.error('❌ Error:', err.message);
   rl.close();
   process.exit(1);

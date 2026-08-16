@@ -35,7 +35,7 @@ class Runtime implements LanguageRuntime {
       return parser;
     } catch (err) {
       const error = err as { message?: string };
-      console.warn('[plugin-typescript] setLanguage failed for ' + language + ': ' + error.message);
+      console.warn(`[plugin-typescript] setLanguage failed for ${language}: ${error.message}`);
       return null;
     }
   }
@@ -50,7 +50,7 @@ class Runtime implements LanguageRuntime {
       grammar = grammarModule.default?.typescript ?? grammarModule.typescript;
 
       if (!grammar) {
-        console.warn('[plugin-typescript] Could not extract grammar from module ' + GRAMMAR_MODULE);
+        console.warn(`[plugin-typescript] Could not extract grammar from module ${GRAMMAR_MODULE}`);
         return null;
       }
 
@@ -58,7 +58,9 @@ class Runtime implements LanguageRuntime {
       return grammar;
     } catch (err) {
       const error = err as { message?: string };
-      console.warn('[plugin-typescript] Failed to load grammar from ' + GRAMMAR_MODULE + ': ' + error.message);
+      console.warn(
+        `[plugin-typescript] Failed to load grammar from ${GRAMMAR_MODULE}: ${error.message}`,
+      );
       return null;
     }
   }

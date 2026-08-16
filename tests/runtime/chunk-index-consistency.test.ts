@@ -13,4 +13,3 @@ test('一致性报告应正确识别缺失项', () => {
   assert.deepEqual(report.missingInFts, ['a#h#1', 'b#h#0']);
   assert.deepEqual(report.missingInVector, ['c#h#0']);
 });
-

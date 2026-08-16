@@ -4,9 +4,9 @@
  * Cách dùng: node scripts/fix-augment-config.js
  */
 
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
+const fs = require('node:fs');
+const path = require('node:path');
+const os = require('node:os');
 
 const CONFIG_PATH = path.join(
   os.homedir(),
@@ -16,7 +16,7 @@ const CONFIG_PATH = path.join(
   'User',
   'globalStorage',
   'augment.vscode-augment',
-  'byok-config.json'
+  'byok-config.json',
 );
 
 console.log('=== Augment-BYOK Config Fixer ===\n');
@@ -29,8 +29,8 @@ if (!fs.existsSync(CONFIG_PATH)) {
 }
 
 // Backup original
-const backupPath = CONFIG_PATH + '.backup-' + Date.now();
-console.log('📦 Backup config hiện tại -> ' + path.basename(backupPath));
+const backupPath = `${CONFIG_PATH}.backup-${Date.now()}`;
+console.log(`📦 Backup config hiện tại -> ${path.basename(backupPath)}`);
 fs.copyFileSync(CONFIG_PATH, backupPath);
 
 // Read current config
@@ -79,15 +79,16 @@ try {
 
   console.log('\n🔄 Tiếp theo:');
   console.log('  1. Restart VSCode');
-  console.log('  2. Chạy: D:\\MCP\\Awesome-Context-Engineering\\scripts\\fix-augment-indexing-loop.bat (sau khi đóng VSCode)');
+  console.log(
+    '  2. Chạy: D:\\MCP\\Awesome-Context-Engineering\\scripts\\fix-augment-indexing-loop.bat (sau khi đóng VSCode)',
+  );
   console.log('  3. Mở lại VSCode → Extension sẽ re-index sạch');
 
-  console.log('\n💾 Backup file: ' + backupPath);
+  console.log(`\n💾 Backup file: ${backupPath}`);
   console.log('   (Có thể restore bằng cách copy lại nếu cần)');
-
 } catch (err) {
   console.error('❌ Lỗi ghi config:', err.message);
   console.log('\n🔄 Restore backup:');
-  console.log('   copy "' + backupPath + '" "' + CONFIG_PATH + '"');
+  console.log(`   copy "${backupPath}" "${CONFIG_PATH}"`);
   process.exit(1);
 }

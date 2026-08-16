@@ -79,14 +79,13 @@ test('同文件重叠区间应合并为单段', async () => {
       buildChunk({ filePath, chunkIndex: 1, score: 0.7, rawStart: 8, rawEnd: 18 }),
     ]);
 
-	
     assert.equal(packed.length, 1);
     assert.equal(packed[0].segments.length, 1);
     assert.equal(packed[0].segments[0].rawStart, 0);
     assert.equal(packed[0].segments[0].rawEnd, 18);
   } finally {
     closeDb(db);
-    
+
     // Thử đóng packer nếu có biến
     if (typeof packer !== 'undefined') {
       if (typeof (packer as any).destroy === 'function') await (packer as any).destroy();
@@ -94,12 +93,12 @@ test('同文件重叠区间应合并为单段', async () => {
     }
 
     // Đợi một chút để giải phóng luồng
-    await new Promise(resolve => setTimeout(resolve, 50));
-    
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
     try {
       // Ép xóa thư mục dữ liệu tạm
       await fs.rm(projectDir(projectId), { recursive: true, force: true });
-    } catch (e) {
+    } catch (_e) {
       // 💡 Bỏ qua lỗi EBUSY trên Windows tại đây vì file sẽ tự giải phóng khi kết thúc luồng chạy test
     }
   }
@@ -154,7 +153,7 @@ test('maxSegmentsPerFile 与 maxTotalChars 应生效', async () => {
     assert.equal(packed[0].segments.length, 1, '每文件最多 1 段');
   } finally {
     closeDb(db);
-    
+
     // Thử đóng packer nếu có biến
     if (typeof packer !== 'undefined') {
       if (typeof (packer as any).destroy === 'function') await (packer as any).destroy();
@@ -162,12 +161,12 @@ test('maxSegmentsPerFile 与 maxTotalChars 应生效', async () => {
     }
 
     // Đợi một chút để giải phóng luồng
-    await new Promise(resolve => setTimeout(resolve, 50));
-    
+    await new Promise((resolve) => setTimeout(resolve, 50));
+
     try {
       // Ép xóa thư mục dữ liệu tạm
       await fs.rm(projectDir(projectId), { recursive: true, force: true });
-    } catch (e) {
+    } catch (_e) {
       // 💡 Bỏ qua lỗi EBUSY trên Windows tại đây vì file sẽ tự giải phóng khi kết thúc luồng chạy test
     }
   }

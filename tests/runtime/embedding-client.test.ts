@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
 import fsSync from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import test from 'node:test';
 import { EmbeddingClient } from '../../src/api/embedding.js';
 import { EmbeddingCache } from '../../src/api/embeddingCache.js';
 
@@ -213,8 +213,8 @@ test('每个 key 应持有独立的速率限制状态，不共享降级窗口', 
   assert.ok(second, 'key-2 limiter 应存在');
   assert.notEqual(first, second, '不同 key 不应复用同一个 limiter 实例');
 
-  first['currentConcurrency'] = 1;
-  first['backoffMs'] = 20000;
+  first.currentConcurrency = 1;
+  first.backoffMs = 20000;
 
   const firstStatus = first.getStatus();
   const secondStatus = second.getStatus();

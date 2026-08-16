@@ -22,14 +22,11 @@ registry.register({
 
 assert.deepEqual(registry.listLanguages(), ['typescript', 'javascript', 'python']);
 
-assert.throws(
-  () => {
-    registry.register({
-      id: 'runtime-a',
-      languages: ['go'],
-      canParse: (language) => language === 'go',
-      getParser: async () => null,
-    });
-  },
-  /runtime-a/,
-);
+assert.throws(() => {
+  registry.register({
+    id: 'runtime-a',
+    languages: ['go'],
+    canParse: (language) => language === 'go',
+    getParser: async () => null,
+  });
+}, /runtime-a/);

@@ -19,11 +19,11 @@ export function estimateTokens(text: string): number {
   // - Spaces, punctuation (lighter weight)
   // - Code has different tokenization patterns
   const chars = text.length;
-  
+
   // Detect if text is mostly code (has many special chars)
   const specialChars = (text.match(/[{}()[\];,.<>]/g) || []).length;
   const isCode = specialChars / chars > 0.05;
-  
+
   // Code typically has more tokens per character due to symbols
   const charsPerToken = isCode ? 3.5 : 4;
 

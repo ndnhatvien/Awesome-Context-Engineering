@@ -6,8 +6,7 @@
  * - 在进入 node-gyp 失败之前，直接给出明确错误与建议版本
  */
 
-const rawVersion =
-  process.env.ACE_NODE_VERSION_OVERRIDE || process.version;
+const rawVersion = process.env.ACE_NODE_VERSION_OVERRIDE || process.version;
 
 const match = /^v(\d+)\./.exec(rawVersion);
 const major = match ? Number(match[1]) : Number.NaN;

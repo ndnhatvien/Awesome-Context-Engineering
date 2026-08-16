@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
-import { getLanguage } from '../src/scanner/language.js';
-import { isLanguageSupported } from '../src/chunking/ParserPool.js';
 import { getLanguageSpec } from '../src/chunking/LanguageSpec.js';
+import { isLanguageSupported } from '../src/chunking/ParserPool.js';
+import { getLanguage } from '../src/scanner/language.js';
 import { CSharpResolver } from '../src/search/resolvers/CSharpResolver.js';
 import { DartResolver } from '../src/search/resolvers/DartResolver.js';
 import { PhpResolver } from '../src/search/resolvers/PhpResolver.js';
@@ -70,7 +70,11 @@ use const App\\Config\\DEFAULT_LIMIT;
   ]);
 
   assert.equal(
-    resolver.resolve('App\\Services\\UserService', 'src/App/Controllers/AuthController.php', allFiles),
+    resolver.resolve(
+      'App\\Services\\UserService',
+      'src/App/Controllers/AuthController.php',
+      allFiles,
+    ),
     'src/App/Services/UserService.php',
   );
 });
@@ -175,7 +179,12 @@ global using global::System.Linq;
 using IO = System.IO;
 `;
 
-  assert.deepEqual(resolver.extract(content), ['System.Text', 'System.Math', 'global::System.Linq', 'System.IO']);
+  assert.deepEqual(resolver.extract(content), [
+    'System.Text',
+    'System.Math',
+    'global::System.Linq',
+    'System.IO',
+  ]);
 
   const allFiles = new Set<string>([
     'src/System/Text.cs',

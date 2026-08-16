@@ -1,9 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {
-  SearchService,
-  applyPreRerankPerFileCap,
-} from '../../src/search/SearchService.js';
+import { applyPreRerankPerFileCap, SearchService } from '../../src/search/SearchService.js';
 import type { ScoredChunk } from '../../src/search/types.js';
 
 function chunk(filePath: string, chunkIndex: number, score: number): ScoredChunk {
@@ -49,7 +46,6 @@ test('per-file cap 应限制单文件进入 rerank 的候选数', () => {
     ['src/a.ts#0', 'src/a.ts#1', 'src/b.ts#0', 'src/c.ts#0'],
   );
 });
-
 
 test('per-file cap <= 0 时应视为不限制', () => {
   const input = [

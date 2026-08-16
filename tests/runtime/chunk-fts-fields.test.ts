@@ -31,4 +31,3 @@ export class AuthService {
   assert.equal(doc.symbolTokens.includes('login_user'), true);
   assert.equal(doc.symbolTokens.includes('loginUser'), true);
 });
-

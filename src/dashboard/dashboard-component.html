@@ -274,7 +274,9 @@
 
   async function loadDashboardStats() {
     const cards = document.querySelectorAll('.stat-card, .language-chart');
-    cards.forEach(card => card.classList.add('loading'));
+    for (const card of cards) {
+      card.classList.add('loading');
+    }
 
     try {
       const response = await fetch('/api/dashboard/stats');
@@ -289,7 +291,9 @@
       // Show error in UI
       document.getElementById('stat-total-files').innerText = 'Error';
     } finally {
-      cards.forEach(card => card.classList.remove('loading'));
+      for (const card of cards) {
+        card.classList.remove('loading');
+      }
     }
   }
 
@@ -351,7 +355,7 @@
   }
 
   function formatTimeAgo(date) {
-    const seconds = Math.floor((new Date() - date) / 1000);
+    const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
     
     if (seconds < 60) return 'Just now';
     if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;

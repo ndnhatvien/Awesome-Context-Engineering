@@ -154,7 +154,10 @@ test('files_fts 降级路径应批量获取 chunks，避免逐文件查询', asy
     '/tmp/project',
   ) as unknown as SearchServiceHarness & {
     config: { ftsTopKFiles: number; lexTotalChunks: number; lexChunksPerFile: number };
-    lexicalRetrieveFromFilesFts: (query: string, languageFilter?: string[]) => Promise<ScoredChunk[]>;
+    lexicalRetrieveFromFilesFts: (
+      query: string,
+      languageFilter?: string[],
+    ) => Promise<ScoredChunk[]>;
   };
 
   let batchCalls = 0;

@@ -10,8 +10,8 @@ export type Provider = 'anthropic' | 'openai' | 'google';
 export interface ModelPricing {
   model: string;
   provider: Provider;
-  inputPer1M: number;   // $ per 1M input tokens
-  outputPer1M: number;  // $ per 1M output tokens
+  inputPer1M: number; // $ per 1M input tokens
+  outputPer1M: number; // $ per 1M output tokens
 }
 
 /**
@@ -26,14 +26,14 @@ export const PRICING_TABLE: ModelPricing[] = [
   { model: 'claude-sonnet-3.5', provider: 'anthropic', inputPer1M: 3, outputPer1M: 15 },
   { model: 'haiku', provider: 'anthropic', inputPer1M: 0.25, outputPer1M: 1.25 },
   { model: 'claude-haiku-3', provider: 'anthropic', inputPer1M: 0.25, outputPer1M: 1.25 },
-  
+
   // OpenAI GPT
   { model: 'gpt-4o', provider: 'openai', inputPer1M: 2.5, outputPer1M: 10 },
   { model: 'gpt-4o-mini', provider: 'openai', inputPer1M: 0.15, outputPer1M: 0.6 },
   { model: 'gpt-4-turbo', provider: 'openai', inputPer1M: 10, outputPer1M: 30 },
   { model: 'gpt-4', provider: 'openai', inputPer1M: 30, outputPer1M: 60 },
   { model: 'gpt-3.5-turbo', provider: 'openai', inputPer1M: 0.5, outputPer1M: 1.5 },
-  
+
   // Google Gemini
   { model: 'gemini-2.0-flash', provider: 'google', inputPer1M: 0.3, outputPer1M: 1.2 },
   { model: 'gemini-1.5-pro', provider: 'google', inputPer1M: 1.25, outputPer1M: 5 },
@@ -48,7 +48,7 @@ export const PRICING_TABLE: ModelPricing[] = [
  */
 export function getPricing(model: string): ModelPricing | null {
   const normalized = model.toLowerCase().trim();
-  return PRICING_TABLE.find(p => p.model === normalized) || null;
+  return PRICING_TABLE.find((p) => p.model === normalized) || null;
 }
 
 /**
@@ -59,14 +59,10 @@ export function getPricing(model: string): ModelPricing | null {
  * @param model Model name
  * @returns Cost in USD
  */
-export function calculateCost(
-  tokens: number,
-  type: 'input' | 'output',
-  model: string
-): number {
+export function calculateCost(tokens: number, type: 'input' | 'output', model: string): number {
   const pricing = getPricing(model);
   if (!pricing) return 0;
-  
+
   const rate = type === 'input' ? pricing.inputPer1M : pricing.outputPer1M;
   return (tokens / 1_000_000) * rate;
 }
@@ -88,7 +84,7 @@ export function formatCost(cost: number): string {
  * @returns Array of model names
  */
 export function getAvailableModels(): string[] {
-  return PRICING_TABLE.map(p => p.model);
+  return PRICING_TABLE.map((p) => p.model);
 }
 
 /**
@@ -98,5 +94,5 @@ export function getAvailableModels(): string[] {
  * @returns Array of model names
  */
 export function getModelsByProvider(provider: Provider): string[] {
-  return PRICING_TABLE.filter(p => p.provider === provider).map(p => p.model);
+  return PRICING_TABLE.filter((p) => p.provider === provider).map((p) => p.model);
 }

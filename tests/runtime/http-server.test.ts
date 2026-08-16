@@ -46,7 +46,7 @@ function httpRequest(
 /**
  * Helper: Gửi HTTP request và chỉ trả về headers (để test SSE/streaming endpoint)
  */
-function httpRequestHeadersOnly(
+function _httpRequestHeadersOnly(
   options: http.RequestOptions,
   body?: string,
 ): Promise<{ statusCode: number; headers: http.IncomingHttpHeaders; req: http.ClientRequest }> {
@@ -149,7 +149,8 @@ describe('HTTP Server Tests', { concurrency: 1 }, () => {
       // Đợi port được giải phóng
       await new Promise((resolve) => setTimeout(resolve, 200));
     }
-  });  test('MCP endpoint chấp nhận GET requests cho SSE', async () => {
+  });
+  test('MCP endpoint chấp nhận GET requests cho SSE', async () => {
     const app = createHttpServerApp(TEST_HOST);
     const server = app.listen(TEST_PORT, TEST_HOST);
 

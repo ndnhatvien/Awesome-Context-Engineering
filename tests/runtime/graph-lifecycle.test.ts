@@ -35,13 +35,7 @@ export class TestClass {
 `;
 
 // Test 1: Added file inserts graph nodes/edges/state
-const indexed1 = await indexFileGraph(
-  db,
-  'src/test.ts',
-  'hash123',
-  'typescript',
-  testSource,
-);
+const indexed1 = await indexFileGraph(db, 'src/test.ts', 'hash123', 'typescript', testSource);
 
 assert.equal(indexed1, true, 'Indexing should succeed');
 
@@ -87,13 +81,7 @@ export function newFunction() {
 }
 `;
 
-const indexed2 = await indexFileGraph(
-  db,
-  'src/test.ts',
-  'hash456',
-  'typescript',
-  modifiedSource,
-);
+const indexed2 = await indexFileGraph(db, 'src/test.ts', 'hash456', 'typescript', modifiedSource);
 
 assert.equal(indexed2, true, 'Re-indexing should succeed');
 
@@ -136,13 +124,7 @@ const stateAfterDelete = getGraphIndexState(db, 'src/test.ts');
 assert.equal(stateAfterDelete, null, 'Index state should be deleted');
 
 // Test 4: Non-TS/JS files are skipped
-const skipped = await indexFileGraph(
-  db,
-  'src/test.py',
-  'hash789',
-  'python',
-  'def test(): pass',
-);
+const skipped = await indexFileGraph(db, 'src/test.py', 'hash789', 'python', 'def test(): pass');
 
 assert.equal(skipped, true, 'Non-TS/JS files should return true (skipped)');
 

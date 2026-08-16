@@ -42,7 +42,10 @@ cli.command('init', 'Initialize ACE configuration').action(async () => {
   } catch (err) {
     const error = err as { code?: string; message?: string; stack?: string };
     if (error.code !== 'EEXIST') {
-      logger.error({ err, stack: error.stack }, `Failed to create config directory: ${error.message}`);
+      logger.error(
+        { err, stack: error.stack },
+        `Failed to create config directory: ${error.message}`,
+      );
       process.exit(1);
     }
     logger.info(`Config directory already exists: ${configDir}`);

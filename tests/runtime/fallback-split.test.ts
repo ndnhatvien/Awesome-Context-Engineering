@@ -13,13 +13,7 @@ const filePath = path.join(tempRoot, 'Sample.kt');
 try {
   await fs.writeFile(
     filePath,
-    [
-      'class Sample {',
-      '  fun greet(): String {',
-      '    return "hello"',
-      '  }',
-      '}',
-    ].join('\n'),
+    ['class Sample {', '  fun greet(): String {', '    return "hello"', '  }', '}'].join('\n'),
     'utf8',
   );
 

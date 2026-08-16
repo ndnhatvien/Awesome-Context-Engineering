@@ -9,12 +9,12 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { logger } from '../utils/logger.js';
 import {
-  codebaseRetrievalSchema,
   codebaseImpactSchema,
+  codebaseRetrievalSchema,
   detectTasksSchema,
   generateCommitMessageSchema,
-  handleCodebaseRetrieval,
   handleCodebaseImpact,
+  handleCodebaseRetrieval,
   handleDetectTasks,
   handleGenerateCommitMessage,
 } from './tools/index.js';
@@ -201,16 +201,15 @@ Note: Only TypeScript/JavaScript files are analyzed in the MVP. Graph must be bu
           description: 'The absolute file system path to the repository root',
         },
         target: {
-          oneOf: [
-            { type: 'string' },
-            { type: 'array', items: { type: 'string' } },
-          ],
-          description: 'Target file path, symbol path (file:symbol), or symbol name to analyze. Can be a single string or array of strings.',
+          oneOf: [{ type: 'string' }, { type: 'array', items: { type: 'string' } }],
+          description:
+            'Target file path, symbol path (file:symbol), or symbol name to analyze. Can be a single string or array of strings.',
         },
         mode: {
           type: 'string',
           enum: ['impact', 'affected'],
-          description: 'Analysis mode: "impact" for detailed paths, "affected" for test/file list (default: affected)',
+          description:
+            'Analysis mode: "impact" for detailed paths, "affected" for test/file list (default: affected)',
         },
         depth: {
           type: 'number',

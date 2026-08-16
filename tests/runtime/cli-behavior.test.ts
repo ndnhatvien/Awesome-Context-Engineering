@@ -5,49 +5,53 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-test('search source_code_only + include_languages 组合不再互斥，取交集后正常进入搜索', { concurrency: false }, () => {
-  const fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), 'ace-cli-language-flags-'));
+test(
+  'search source_code_only + include_languages 组合不再互斥，取交集后正常进入搜索',
+  { concurrency: false },
+  () => {
+    const fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), 'ace-cli-language-flags-'));
 
-  try {
-    const result = spawnSync(
-      process.execPath,
-      [
-        '--import',
-        'tsx',
-        'src/index.ts',
-        'search-context',
-        '--repo-path',
-        process.cwd(),
-        '--information-request',
-        '定位测试入口',
-        '--technical-terms',
-        'AuthService, SearchService',
-        '--source-code-only',
-        '--include-languages',
-        'typescript,python',
-        '--exclude-languages',
-        'markdown,json',
-      ],
-      {
-        cwd: process.cwd(),
-        encoding: 'utf8',
-        env: {
-          HOME: fakeHome,
-          USERPROFILE: fakeHome,
-          PATH: process.env.PATH ?? '',
-          NODE_ENV: 'production',
-          ACE_TEST: 'true',
+    try {
+      const result = spawnSync(
+        process.execPath,
+        [
+          '--import',
+          'tsx',
+          'src/index.ts',
+          'search-context',
+          '--repo-path',
+          process.cwd(),
+          '--information-request',
+          '定位测试入口',
+          '--technical-terms',
+          'AuthService, SearchService',
+          '--source-code-only',
+          '--include-languages',
+          'typescript,python',
+          '--exclude-languages',
+          'markdown,json',
+        ],
+        {
+          cwd: process.cwd(),
+          encoding: 'utf8',
+          env: {
+            HOME: fakeHome,
+            USERPROFILE: fakeHome,
+            PATH: process.env.PATH ?? '',
+            NODE_ENV: 'production',
+            ACE_TEST: 'true',
+          },
         },
-      },
-    );
+      );
 
-    // 不再报互斥错误，正常进入搜索流程（因缺少 API key 而失败）
-    assert.doesNotMatch(result.stderr, /互斥/);
-    assert.match(result.stdout, /配置缺失/);
-  } finally {
-    fs.rmSync(fakeHome, { recursive: true, force: true });
-  }
-});
+      // 不再报互斥错误，正常进入搜索流程（因缺少 API key 而失败）
+      assert.doesNotMatch(result.stderr, /互斥/);
+      assert.match(result.stdout, /配置缺失/);
+    } finally {
+      fs.rmSync(fakeHome, { recursive: true, force: true });
+    }
+  },
+);
 
 test('search 配置缺失时返回非零退出码', { concurrency: false }, () => {
   const fakeHome = fs.mkdtempSync(path.join(os.tmpdir(), 'ace-cli-missing-env-'));

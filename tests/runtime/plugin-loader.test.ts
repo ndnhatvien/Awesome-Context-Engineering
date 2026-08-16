@@ -4,7 +4,10 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { pathToFileURL } from 'node:url';
-import { DEFAULT_PLUGIN_CANDIDATES, discoverPluginPackages } from '../../src/chunking/runtime/PluginLoader.js';
+import {
+  DEFAULT_PLUGIN_CANDIDATES,
+  discoverPluginPackages,
+} from '../../src/chunking/runtime/PluginLoader.js';
 
 test('默认插件候选应切换到四个默认核心语言插件', () => {
   assert.deepEqual(DEFAULT_PLUGIN_CANDIDATES, [

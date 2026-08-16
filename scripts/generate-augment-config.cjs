@@ -7,9 +7,9 @@
  *   node scripts/generate-augment-config.cjs --anthropic-key sk-ant-xxx
  */
 
-const fs = require('fs');
-const path = require('path');
-const os = require('os');
+const fs = require('node:fs');
+const path = require('node:path');
+const os = require('node:os');
 
 // Parse CLI args
 function parseArgs() {
@@ -79,9 +79,9 @@ Examples:
 // Prompt for input
 function prompt(question) {
   return new Promise((resolve) => {
-    const readline = require('readline').createInterface({
+    const readline = require('node:readline').createInterface({
       input: process.stdin,
-      output: process.stdout
+      output: process.stdout,
     });
     readline.question(question, (answer) => {
       readline.close();
@@ -117,7 +117,7 @@ function generateConfig(options) {
       autoIndex: false,
       injectContext: true,
     },
-    providers: []
+    providers: [],
   };
 
   // Add Anthropic provider
@@ -126,10 +126,7 @@ function generateConfig(options) {
       id: 'anthropic',
       name: 'Claude',
       apiKey: options.anthropicKey,
-      models: [
-        'claude-3-5-sonnet-20241022',
-        'claude-3-opus-20240229'
-      ]
+      models: ['claude-3-5-sonnet-20241022', 'claude-3-opus-20240229'],
     });
   }
 
@@ -139,11 +136,7 @@ function generateConfig(options) {
       id: 'openai',
       name: 'OpenAI',
       apiKey: options.openaiKey,
-      models: [
-        'gpt-4-turbo',
-        'gpt-4',
-        'gpt-3.5-turbo'
-      ]
+      models: ['gpt-4-turbo', 'gpt-4', 'gpt-3.5-turbo'],
     });
   }
 
@@ -153,7 +146,7 @@ function generateConfig(options) {
       id: 'anthropic',
       name: 'Claude',
       apiKey: 'YOUR_API_KEY_HERE',
-      models: ['claude-3-5-sonnet-20241022']
+      models: ['claude-3-5-sonnet-20241022'],
     });
   }
 
@@ -231,7 +224,7 @@ async function main() {
   console.log('\n📖 See docs/AUGMENT_MANUAL_CONFIG.md for details');
 }
 
-main().catch(err => {
+main().catch((err) => {
   console.error('❌ Error:', err.message);
   process.exit(1);
 });

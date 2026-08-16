@@ -18,6 +18,31 @@ import type {
 } from './types.js';
 import { makeFileNodeId } from './types.js';
 
+interface GraphNodeRow {
+  id: string;
+  kind: string;
+  name: string;
+  file_path: string;
+  start_line: number | null;
+  end_line: number | null;
+  breadcrumb: string | null;
+  signature: string | null;
+  language: string;
+  file_hash: string;
+  metadata_json: string | null;
+}
+
+interface GraphEdgeRow {
+  id: string;
+  from_id: string;
+  to_id: string;
+  kind: string;
+  file_path: string;
+  confidence: string;
+  file_hash: string;
+  metadata_json: string | null;
+}
+
 export interface ImpactAnalysisOptions {
   depth?: number;
   maxNodes?: number;
@@ -64,8 +89,8 @@ export class ImpactGraphService {
 
     // Get seed nodes
     const seedNodeIds = resolvedTargets
-      .filter((t) => t.nodeId)
-      .map((t) => t.nodeId!);
+      .filter((t): t is GraphResolvedTarget & { nodeId: string } => t.nodeId !== undefined)
+      .map((t) => t.nodeId);
 
     if (seedNodeIds.length === 0) {
       return {
@@ -210,7 +235,8 @@ export class ImpactGraphService {
     }));
 
     while (queue.length > 0 && result.length < maxNodes) {
-      const current = queue.shift()!;
+      const current = queue.shift();
+      if (!current) break;
 
       if (visited.has(current.nodeId)) {
         continue;
@@ -274,7 +300,7 @@ export class ImpactGraphService {
       WHERE id = ?
     `,
       )
-      .get(nodeId) as any;
+      .get(nodeId) as GraphNodeRow | undefined;
 
     if (!row) return null;
 
@@ -307,7 +333,7 @@ export class ImpactGraphService {
       LIMIT 1
     `,
       )
-      .get(filePath) as any;
+      .get(filePath) as GraphNodeRow | undefined;
 
     if (!row) return null;
 
@@ -336,7 +362,7 @@ export class ImpactGraphService {
       WHERE file_path = ? AND name = ? AND kind IN ('function', 'class', 'method')
     `,
       )
-      .all(filePath, symbolName) as any[];
+      .all(filePath, symbolName) as GraphNodeRow[];
 
     return rows.map((row) => ({
       id: row.id,
@@ -365,7 +391,7 @@ export class ImpactGraphService {
       LIMIT 10
     `,
       )
-      .all(name) as any[];
+      .all(name) as GraphNodeRow[];
 
     return rows.map((row) => ({
       id: row.id,
@@ -392,7 +418,7 @@ export class ImpactGraphService {
       WHERE to_id = ?
     `,
       )
-      .all(nodeId) as any[];
+      .all(nodeId) as GraphEdgeRow[];
 
     return rows.map((row) => ({
       id: row.id,
@@ -467,7 +493,8 @@ export class ImpactGraphService {
     }));
 
     while (queue.length > 0) {
-      const current = queue.shift()!;
+      const current = queue.shift();
+      if (!current) break;
 
       if (current.nodeId === toNodeId) {
         return current.path;

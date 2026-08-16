@@ -8,7 +8,7 @@ interface PackageJson {
 }
 
 function extractTestFiles(command: string): Set<string> {
-  const matches = command.match(/tests\/[\w\-/\.]+\.test\.ts/g) ?? [];
+  const matches = command.match(/tests\/[\w\-/.]+\.test\.ts/g) ?? [];
   return new Set(matches);
 }
 
@@ -30,11 +30,7 @@ test('pnpm test 应覆盖 tests/runtime 下全部 *.test.ts', async () => {
 
   const missing = runtimeTests.filter((file) => !declared.has(file));
 
-  assert.deepEqual(
-    missing,
-    [],
-    `pnpm test 缺少测试文件: ${missing.join(', ') || '(none)'}`,
-  );
+  assert.deepEqual(missing, [], `pnpm test 缺少测试文件: ${missing.join(', ') || '(none)'}`);
 });
 
 test('pnpm run test:benchmark 应覆盖 tests/benchmark 下全部 *.test.ts', async () => {
@@ -59,5 +55,8 @@ test('应提供 test:unit:all 统一入口（test + benchmark）', async () => {
 
   assert.ok(command, '缺少 scripts.test:unit:all');
   assert.ok(command?.includes('pnpm test'), 'test:unit:all 需包含 pnpm test');
-  assert.ok(command?.includes('pnpm run test:benchmark'), 'test:unit:all 需包含 pnpm run test:benchmark');
+  assert.ok(
+    command?.includes('pnpm run test:benchmark'),
+    'test:unit:all 需包含 pnpm run test:benchmark',
+  );
 });

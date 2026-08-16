@@ -54,7 +54,10 @@ assert(helperImport, 'Should import from ./helper');
 
 // Should have contains edges
 const containsEdges = calculatorResult.edges.filter((e) => e.kind === 'contains');
-assert(containsEdges.length >= 4, `Should have contains edges for class, methods, and function, got ${containsEdges.length}`);
+assert(
+  containsEdges.length >= 4,
+  `Should have contains edges for class, methods, and function, got ${containsEdges.length}`,
+);
 
 // Should have call edges (calculateSum is called in add method)
 const callEdges = calculatorResult.edges.filter((e) => e.kind === 'calls');

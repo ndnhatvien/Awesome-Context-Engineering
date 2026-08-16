@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
-import { loadAutoTuneDataset } from '../../src/search/eval/autoTuneDataset.js';
 import { runAutoTune } from '../../src/search/eval/autoTune.js';
+import { loadAutoTuneDataset } from '../../src/search/eval/autoTuneDataset.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const fixturePath = path.join(__dirname, 'fixtures/sample-auto-tune-dataset.jsonl');

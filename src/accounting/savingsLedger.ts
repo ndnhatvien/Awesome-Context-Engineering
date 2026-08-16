@@ -68,10 +68,7 @@ export function initSavingsLedger(db: Database): void {
  * @param entry Savings entry (without id)
  * @returns Entry ID
  */
-export function recordSavings(
-  db: Database,
-  entry: Omit<SavingsEntry, 'id'>
-): number {
+export function recordSavings(db: Database, entry: Omit<SavingsEntry, 'id'>): number {
   const stmt = db.prepare(`
     INSERT INTO savings_ledger (
       project_id, session_id, timestamp, bucket,
@@ -89,7 +86,7 @@ export function recordSavings(
     entry.tokensActual,
     entry.tokensSaved,
     entry.dollarsSaved,
-    entry.model
+    entry.model,
   );
 
   return result.lastInsertRowid as number;
@@ -103,14 +100,8 @@ export function recordSavings(
  * @param since Optional timestamp to filter from (ms)
  * @returns Savings summary
  */
-export function getSavingsSummary(
-  db: Database,
-  projectId: string,
-  since?: number
-): SavingsSummary {
-  const whereClause = since
-    ? 'WHERE project_id = ? AND timestamp >= ?'
-    : 'WHERE project_id = ?';
+export function getSavingsSummary(db: Database, projectId: string, since?: number): SavingsSummary {
+  const whereClause = since ? 'WHERE project_id = ? AND timestamp >= ?' : 'WHERE project_id = ?';
   const params = since ? [projectId, since] : [projectId];
 
   // Get total savings
@@ -223,7 +214,7 @@ export function startSession(
   db: Database,
   sessionId: string,
   projectId: string,
-  model: string
+  model: string,
 ): void {
   db.prepare(
     `
@@ -296,14 +287,14 @@ export function getSessionSummary(db: Database, sessionId: string): SessionSumma
     .get(sessionId, sessionId) as
     | {
         session_id: string;
-    project_id: string;
-    started_at: number;
-    ended_at: number | null;
-    model: string;
-    total_tokens_saved: number;
-    total_dollars_saved: number;
-    event_count: number;
-        }
+        project_id: string;
+        started_at: number;
+        ended_at: number | null;
+        model: string;
+        total_tokens_saved: number;
+        total_dollars_saved: number;
+        event_count: number;
+      }
     | undefined;
 
   if (!row) return null;

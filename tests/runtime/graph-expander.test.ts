@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { GraphExpander } from '../../src/search/GraphExpander.js';
 import { DEFAULT_CONFIG } from '../../src/search/config.js';
+import { GraphExpander } from '../../src/search/GraphExpander.js';
 import type { ScoredChunk } from '../../src/search/types.js';
 
 function buildSeed(filePath: string, chunkIndex: number, score = 0.9): ScoredChunk {

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
-import fs from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
+import fs from 'node:fs/promises';
 import test from 'node:test';
 
 test('主包应声明 preinstall 守卫并随发布包携带脚本', async () => {

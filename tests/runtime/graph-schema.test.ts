@@ -27,10 +27,11 @@ const tablesAfter = db1
   .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name LIKE 'graph_%'")
   .all() as Array<{ name: string }>;
 
-assert.deepEqual(
-  tablesAfter.map((t) => t.name).sort(),
-  ['graph_edges', 'graph_index_state', 'graph_nodes'],
-);
+assert.deepEqual(tablesAfter.map((t) => t.name).sort(), [
+  'graph_edges',
+  'graph_index_state',
+  'graph_nodes',
+]);
 
 // Test 3: Required indexes exist
 const indexes = db1
@@ -53,56 +54,68 @@ const requiredIndexes = [
 assert.deepEqual(indexNames, requiredIndexes);
 
 // Test 4: Tables have correct schema
-const nodesSchema = db1
-  .prepare("PRAGMA table_info('graph_nodes')")
-  .all() as Array<{ name: string; type: string; notnull: number; pk: number }>;
+const nodesSchema = db1.prepare("PRAGMA table_info('graph_nodes')").all() as Array<{
+  name: string;
+  type: string;
+  notnull: number;
+  pk: number;
+}>;
 
 const nodesColumns = nodesSchema.map((c) => c.name).sort();
-assert.deepEqual(nodesColumns, [
-  'breadcrumb',
-  'end_line',
-  'file_hash',
-  'file_path',
-  'id',
-  'kind',
-  'language',
-  'metadata_json',
-  'name',
-  'signature',
-  'start_line',
-].sort());
+assert.deepEqual(
+  nodesColumns,
+  [
+    'breadcrumb',
+    'end_line',
+    'file_hash',
+    'file_path',
+    'id',
+    'kind',
+    'language',
+    'metadata_json',
+    'name',
+    'signature',
+    'start_line',
+  ].sort(),
+);
 
-const edgesSchema = db1
-  .prepare("PRAGMA table_info('graph_edges')")
-  .all() as Array<{ name: string }>;
+const edgesSchema = db1.prepare("PRAGMA table_info('graph_edges')").all() as Array<{
+  name: string;
+}>;
 
 const edgesColumns = edgesSchema.map((c) => c.name).sort();
-assert.deepEqual(edgesColumns, [
-  'confidence',
-  'file_hash',
-  'file_path',
-  'from_id',
-  'id',
-  'kind',
-  'metadata_json',
-  'to_id',
-].sort());
+assert.deepEqual(
+  edgesColumns,
+  [
+    'confidence',
+    'file_hash',
+    'file_path',
+    'from_id',
+    'id',
+    'kind',
+    'metadata_json',
+    'to_id',
+  ].sort(),
+);
 
-const indexStateSchema = db1
-  .prepare("PRAGMA table_info('graph_index_state')")
-  .all() as Array<{ name: string }>;
+const indexStateSchema = db1.prepare("PRAGMA table_info('graph_index_state')").all() as Array<{
+  name: string;
+}>;
 
 const indexStateColumns = indexStateSchema.map((c) => c.name).sort();
-assert.deepEqual(indexStateColumns, [
-  'edge_count',
-  'error_message',
-  'file_hash',
-  'file_path',
-  'indexed_at',
-  'language',
-  'node_count',
-  'status',
-].sort());
+assert.deepEqual(
+  indexStateColumns,
+  [
+    'edge_count',
+    'error_message',
+    'file_hash',
+    'file_path',
+    'indexed_at',
+    'language',
+    'node_count',
+    'status',
+  ].sort(),
+);
 
 db1.close();
 

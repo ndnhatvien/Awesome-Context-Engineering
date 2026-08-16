@@ -35,7 +35,7 @@ class Runtime implements LanguageRuntime {
       return parser;
     } catch (err) {
       const error = err as { message?: string };
-      console.warn('[plugin-rust] setLanguage failed for ' + language + ': ' + error.message);
+      console.warn(`[plugin-rust] setLanguage failed for ${language}: ${error.message}`);
       return null;
     }
   }
@@ -52,12 +52,12 @@ class Runtime implements LanguageRuntime {
         grammar = exported;
       } else if (exported?.language) {
         grammar = exported.language;
-      } else if (exported?.['rust']) {
-        grammar = exported['rust'];
+      } else if (exported?.rust) {
+        grammar = exported.rust;
       }
 
       if (!grammar) {
-        console.warn('[plugin-rust] Could not extract grammar from module ' + GRAMMAR_MODULE);
+        console.warn(`[plugin-rust] Could not extract grammar from module ${GRAMMAR_MODULE}`);
         return null;
       }
 
@@ -65,7 +65,7 @@ class Runtime implements LanguageRuntime {
       return grammar;
     } catch (err) {
       const error = err as { message?: string };
-      console.warn('[plugin-rust] Failed to load grammar from ' + GRAMMAR_MODULE + ': ' + error.message);
+      console.warn(`[plugin-rust] Failed to load grammar from ${GRAMMAR_MODULE}: ${error.message}`);
       return null;
     }
   }
