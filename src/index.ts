@@ -145,33 +145,7 @@ cli.command('mcp', '启动 MCP 服务器 (stdio)').action(async () => {
   }
 });
 
-cli
-  .command('mcp-http', '启动 MCP HTTP 服务器')
-  .option('--port <port>', 'HTTP 端口号', { default: '3000' })
-  .option('--host <host>', '监听地址', { default: '127.0.0.1' })
-  .action(async (options: { port?: string; host?: string }) => {
-    const port = parseInt(options.port || '3000', 10);
-    const host = options.host || '127.0.0.1';
 
-    if (Number.isNaN(port) || port < 1 || port > 65535) {
-      logger.error(`无效的端口号: ${options.port}`);
-      process.exit(1);
-    }
-
-    const { startHttpServer } = await import('./mcp/httpServer.js');
-    try {
-      await startHttpServer(port, host);
-      logger.info(`MCP HTTP 服务器已启动在 http://${host}:${port}/mcp`);
-      logger.info(`Health check: http://${host}:${port}/health`);
-    } catch (err) {
-      const error = err as { message?: string; stack?: string };
-      logger.error(
-        { error: error.message, stack: error.stack },
-        `HTTP 服务器启动失败: ${error.message}`,
-      );
-      process.exit(1);
-    }
-  });
 
 cli
   .command('search-context', '本地检索（参数对齐 MCP）')
