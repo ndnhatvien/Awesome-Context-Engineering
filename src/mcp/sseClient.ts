@@ -9,7 +9,7 @@ export class ACEMCPClient {
   private token: string;
   private sessionId: string | null = null;
   private eventSource: EventSource | null = null;
-  private messageHandlers: Map<string, (data: any) => void> = new Map();
+  private messageHandlers: Map<string, (data: unknown) => void> = new Map();
 
   constructor(baseUrl: string, token: string) {
     this.baseUrl = baseUrl.replace(/\/+$/, ''); // Remove trailing slash
@@ -52,8 +52,10 @@ export class ACEMCPClient {
       const url = `${this.baseUrl}/mcp/sse?sessionId=${this.sessionId}`;
 
       // Browser environment (limited - no Authorization header support)
-      if (typeof globalThis !== 'undefined' && (globalThis as any).window?.EventSource) {
-        this.eventSource = new (globalThis as any).window.EventSource(url);
+      if (typeof globalThis !== 'undefined' && (globalThis as Record<string, unknown>).window) {
+        this.eventSource = new (
+          (globalThis as Record<string, unknown>).window as { EventSource: typeof EventSource }
+        ).EventSource(url);
       } else {
         // Node.js environment - requires 'eventsource' package
         try {
@@ -87,30 +89,30 @@ export class ACEMCPClient {
       };
 
       // Listen for specific events
-      es.addEventListener('connected', (event: any) => {
+      es.addEventListener('connected', (event: MessageEvent) => {
         const data = JSON.parse(event.data);
         console.log('[ACE MCP] Connected:', data);
         this.handleMessage('connected', data);
       });
 
-      es.addEventListener('heartbeat', (event: any) => {
+      es.addEventListener('heartbeat', (event: MessageEvent) => {
         const data = JSON.parse(event.data);
         this.handleMessage('heartbeat', data);
       });
 
-      es.addEventListener('notification', (event: any) => {
+      es.addEventListener('notification', (event: MessageEvent) => {
         const data = JSON.parse(event.data);
         this.handleMessage('notification', data);
       });
 
-      es.addEventListener('close', (event: any) => {
+      es.addEventListener('close', (event: MessageEvent) => {
         const data = JSON.parse(event.data);
         console.log('[ACE MCP] Server closed connection:', data);
         this.handleMessage('close', data);
         this.disconnect();
       });
 
-      es.addEventListener('reconnect', (event: any) => {
+      es.addEventListener('reconnect', (event: MessageEvent) => {
         const data = JSON.parse(event.data);
         console.log('[ACE MCP] Reconnect requested:', data);
         this.handleMessage('reconnect', data);
@@ -121,7 +123,7 @@ export class ACEMCPClient {
   /**
    * Register event handler
    */
-  on(event: string, handler: (data: any) => void): void {
+  on(event: string, handler: (data: unknown) => void): void {
     this.messageHandlers.set(event, handler);
   }
 
@@ -135,7 +137,7 @@ export class ACEMCPClient {
   /**
    * Handle incoming SSE message
    */
-  private handleMessage(event: string, data: any): void {
+  private handleMessage(event: string, data: unknown): void {
     const handler = this.messageHandlers.get(event);
     if (handler) {
       handler(data);
@@ -145,7 +147,7 @@ export class ACEMCPClient {
   /**
    * Send MCP JSON-RPC request
    */
-  async callTool(toolName: string, arguments_: any): Promise<any> {
+  async callTool(toolName: string, arguments_: Record<string, unknown>): Promise<unknown> {
     if (!this.sessionId) {
       throw new Error('No session ID. Call createSession() first');
     }
@@ -185,7 +187,7 @@ export class ACEMCPClient {
     repoPath: string,
     informationRequest: string,
     technicalTerms?: string[],
-  ): Promise<any> {
+  ): Promise<unknown> {
     return this.callTool('codebase-retrieval', {
       repo_path: repoPath,
       information_request: informationRequest,
@@ -196,7 +198,7 @@ export class ACEMCPClient {
   /**
    * List active sessions
    */
-  async listSessions(): Promise<any> {
+  async listSessions(): Promise<unknown> {
     const response = await fetch(`${this.baseUrl}/mcp/sessions`, {
       method: 'GET',
       headers: {
@@ -214,7 +216,7 @@ export class ACEMCPClient {
   /**
    * Get session stats
    */
-  async getStats(): Promise<any> {
+  async getStats(): Promise<unknown> {
     const response = await fetch(`${this.baseUrl}/mcp/stats`, {
       method: 'GET',
       headers: {
