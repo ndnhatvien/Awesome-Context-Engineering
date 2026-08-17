@@ -436,6 +436,7 @@ export function createHttpServerApp(): Express {
 
   // Basic middleware
   app.use(express.json());
+  app.use(express.urlencoded({ extended: true }));
 
   // Root endpoint - admin dashboard UI
   app.get('/', (req: Request, res: Response) => {
