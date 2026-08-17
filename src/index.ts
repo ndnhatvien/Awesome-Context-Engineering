@@ -146,6 +146,27 @@ cli.command('mcp', '启动 MCP 服务器 (stdio)').action(async () => {
 });
 
 cli
+  .command('mcp-http', 'Start MCP HTTP server')
+  .option('--port <port>', 'HTTP server port', { default: '8080' })
+  .option('--host <host>', 'HTTP server host', { default: '0.0.0.0' })
+  .action(async (options: { port?: string; host?: string }) => {
+    const { startHttpServer } = await import('./mcp/httpServer.js');
+
+    try {
+      await startHttpServer({
+        port: Number(options.port || process.env.PORT || 8080),
+        host: options.host || '0.0.0.0',
+      });
+    } catch (err) {
+      const error = err as { message?: string; stack?: string };
+
+      logger.error({ err, stack: error.stack }, `MCP HTTP server startup failed: ${error.message}`);
+
+      process.exit(1);
+    }
+  });
+
+cli
   .command('search-context', '本地检索（参数对齐 MCP）')
   .option('--repo-path <path>', '代码库根目录（默认当前目录）')
   .option('--information-request <text>', '自然语言问题描述（必填）')
