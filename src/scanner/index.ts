@@ -109,9 +109,11 @@ export async function scan(rootPath: string, options: ScanOptions = {}): Promise
       if (options.vectorIndex !== false) {
         const embeddingConfig = getEmbeddingConfig();
         const indexer = await getIndexer(projectId, embeddingConfig.dimensions);
-        const vectorClearStartedAt = Date.now();
-        await indexer.clear();
-        vectorClearElapsedMs = Date.now() - vectorClearStartedAt;
+        if (indexer) {
+          const vectorClearStartedAt = Date.now();
+          await indexer.clear();
+          vectorClearElapsedMs = Date.now() - vectorClearStartedAt;
+        }
       }
       forceClearElapsedMs = Date.now() - forceClearStartedAt;
       logger.info(
@@ -246,7 +248,9 @@ export async function scan(rootPath: string, options: ScanOptions = {}): Promise
 
       const embeddingConfig = getEmbeddingConfig();
       const indexer = await getIndexer(projectId, embeddingConfig.dimensions);
-      indexer.resetEmbeddingClient();
+      if (indexer) {
+        indexer.resetEmbeddingClient();
+      }
 
       // 收集需要向量索引的文件：
       // 1. 新增/修改的文件
@@ -320,16 +324,18 @@ export async function scan(rootPath: string, options: ScanOptions = {}): Promise
         }
 
         // 传递进度回调给 indexer（embedding API 调用是真正的耗时操作）
-        const indexStats = await indexer.indexFiles(db, allToIndex, (completed, total) => {
-          // 将 embedding 批次进度映射到 45-99 区间（保留 100 给最终完成）
-          const progress = 45 + Math.floor((completed / total) * 54);
-          options.onProgress?.(progress, 100, `正在生成向量嵌入... (${completed}/${total} 批次)`);
-        });
-        stats.vectorIndex = {
-          indexed: indexStats.indexed,
-          deleted: indexStats.deleted,
-          errors: indexStats.errors,
-        };
+        if (indexer) {
+          const indexStats = await indexer.indexFiles(db, allToIndex, (completed, total) => {
+            // 将 embedding 批次进度映射到 45-99 区间（保留 100 给最终完成）
+            const progress = 45 + Math.floor((completed / total) * 54);
+            options.onProgress?.(progress, 100, `正在生成向量嵌入... (${completed}/${total} 批次)`);
+          });
+          stats.vectorIndex = {
+            indexed: indexStats.indexed,
+            deleted: indexStats.deleted,
+            errors: indexStats.errors,
+          };
+        }
       }
     }
 

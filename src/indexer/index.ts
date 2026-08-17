@@ -5,13 +5,30 @@
  * Currently not implemented but referenced by other modules.
  */
 
-export type Indexer = Record<string, never>;
+import type Database from 'better-sqlite3';
+import type { ProcessResult } from '../scanner/processor.js';
+import type { SearchResult } from '../vectorStore/index.js';
 
-export function getIndexer(): Indexer | null {
+export interface Indexer {
+  clear(): Promise<void>;
+  resetEmbeddingClient(): void;
+  indexFiles(
+    db: Database.Database,
+    files: ProcessResult[],
+    onProgress?: (completed: number, total: number) => void,
+  ): Promise<{ indexed: number; deleted: number; errors: number }>;
+  textSearch(
+    query: string,
+    topK: number,
+    filter?: string,
+  ): Promise<SearchResult[]>;
+}
+
+export async function getIndexer(_projectId: string, _dimensions: number): Promise<Indexer | null> {
   return null;
 }
 
-export function closeIndexer(): void {
+export function closeIndexer(_projectId: string): void {
   // No-op
 }
 

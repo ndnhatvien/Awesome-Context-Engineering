@@ -15,10 +15,10 @@ export interface Token {
   token: string;
   tokenHash: string;
   userId: string;
-  description?: string;
+  description: string | null;
   createdAt: number;
-  expiresAt?: number;
-  lastUsedAt?: number;
+  expiresAt: number | null;
+  lastUsedAt: number | null;
 }
 
 export interface CreateTokenOptions {
