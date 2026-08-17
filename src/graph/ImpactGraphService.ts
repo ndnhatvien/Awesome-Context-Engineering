@@ -1,6 +1,6 @@
 /**
  * Impact Graph Service
- * 
+ *
  * Analyzes code impact through dependency graphs
  */
 
@@ -31,7 +31,7 @@ export class ImpactGraphService {
    */
   async analyzeImpact(targets: string | string[]): Promise<ImpactResult> {
     const targetArray = Array.isArray(targets) ? targets : [targets];
-    
+
     logger.info({ targets: targetArray }, 'Analyzing code impact');
 
     // TODO: Implement actual graph traversal
