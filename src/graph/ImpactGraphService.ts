@@ -64,10 +64,7 @@ export class ImpactGraphService {
   /**
    * Analyze impact of changes to target files
    */
-  async analyzeImpact(
-    targets: string | string[],
-    options?: AnalyzeOptions,
-  ): Promise<ImpactResult> {
+  async analyzeImpact(targets: string | string[], options?: AnalyzeOptions): Promise<ImpactResult> {
     const targetArray = Array.isArray(targets) ? targets : [targets];
 
     logger.info({ targets: targetArray, options }, 'Analyzing code impact');

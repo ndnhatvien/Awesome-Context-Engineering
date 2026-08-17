@@ -17,11 +17,7 @@ export interface Indexer {
     files: ProcessResult[],
     onProgress?: (completed: number, total: number) => void,
   ): Promise<{ indexed: number; deleted: number; errors: number }>;
-  textSearch(
-    query: string,
-    topK: number,
-    filter?: string,
-  ): Promise<SearchResult[]>;
+  textSearch(query: string, topK: number, filter?: string): Promise<SearchResult[]>;
 }
 
 export async function getIndexer(_projectId: string, _dimensions: number): Promise<Indexer | null> {
