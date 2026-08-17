@@ -590,174 +590,31 @@ cli.command('token cleanup', '清理过期的 token').action(async () => {
   }
 });
 
-cli
-  .command('impact <target>', '分析代码变更的影响范围')
-  .option('--depth <n>', '分析深度', { default: '2' })
-  .option('--json', '输出 JSON 格式')
-  .action(async (target: string, options: { depth?: string; json?: boolean }) => {
-    const rootPath = process.cwd();
-    const projectId = generateProjectId(rootPath);
+// TODO: Implement ImpactGraphService
+// cli
+//   .command('impact <target>', '分析代码变更的影响范围')
+//   .option('--depth <n>', '分析深度', { default: '2' })
+//   .option('--json', '输出 JSON 格式')
+//   .action(async (target: string, options: { depth?: string; json?: boolean }) => {
+//     const rootPath = process.cwd();
+//     const projectId = generateProjectId(rootPath);
+//     const depth = Math.max(1, Math.floor(Number(options.depth || '2')));
+//     logger.error('Impact analysis not yet implemented');
+//     process.exit(1);
+//   });
 
-    const depth = Math.max(1, Math.floor(Number(options.depth || '2')));
-
-    try {
-      const { initDb } = await import('./db/index.js');
-      const { ImpactGraphService } = await import('./graph/ImpactGraphService.js');
-
-      const db = initDb(projectId);
-      try {
-        const service = new ImpactGraphService(db);
-        const result = await service.analyzeImpact([target], {
-          depth,
-          includePaths: !options.json,
-        });
-
-        if (options.json) {
-          process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
-        } else {
-          console.log('');
-          console.log(`━━━━ Impact Analysis: ${target} ━━━━`);
-          console.log('');
-
-          if (result.warnings.length > 0) {
-            console.log('⚠️  Warnings:');
-            for (const warning of result.warnings) {
-              console.log(`  ${warning}`);
-            }
-            console.log('');
-          }
-
-          if (result.directTests.length > 0) {
-            console.log(`【Direct Tests】 (${result.directTests.length})`);
-            for (const test of result.directTests.slice(0, 10)) {
-              const score = test.score.toFixed(3);
-              const name = test.testName ? `"${test.testName}"` : path.basename(test.filePath);
-              console.log(`  ${score}  ${name}`);
-              console.log(`       ${test.filePath}:${test.depth}`);
-            }
-            console.log('');
-          }
-
-          if (result.indirectTests.length > 0) {
-            console.log(`【Indirect Tests】 (${result.indirectTests.length})`);
-            for (const test of result.indirectTests.slice(0, 10)) {
-              const score = test.score.toFixed(3);
-              const name = test.testName ? `"${test.testName}"` : path.basename(test.filePath);
-              console.log(`  ${score}  ${name}`);
-              console.log(`       ${test.filePath}:${test.depth}`);
-            }
-            console.log('');
-          }
-
-          if (result.affectedFiles.length > 0) {
-            console.log(`【Affected Files】 (${result.affectedFiles.length})`);
-            for (const file of result.affectedFiles.slice(0, 10)) {
-              const score = file.score.toFixed(3);
-              console.log(`  ${score}  ${file.filePath}`);
-            }
-            console.log('');
-          }
-
-          if (result.impactPaths.length > 0) {
-            console.log('【Impact Paths】');
-            for (const impactPath of result.impactPaths) {
-              console.log(`  ${impactPath.description}`);
-              console.log(`    ${impactPath.path.join(' → ')}`);
-            }
-            console.log('');
-          }
-        }
-      } finally {
-        db.close();
-      }
-    } catch (err) {
-      const error = err as { message?: string; stack?: string };
-      logger.error({ err, stack: error.stack }, `影响分析失败: ${error.message}`);
-      process.exit(1);
-    }
-  });
-
-cli
-  .command('affected <target...>', '查找受影响的测试和文件')
-  .option('--depth <n>', '分析深度', { default: '2' })
-  .option('--json', '输出 JSON 格式')
-  .option('--tests-only', '仅显示测试文件')
-  .action(
-    async (targets: string[], options: { depth?: string; json?: boolean; testsOnly?: boolean }) => {
-      const rootPath = process.cwd();
-      const projectId = generateProjectId(rootPath);
-
-      const depth = Math.max(1, Math.floor(Number(options.depth || '2')));
-
-      try {
-        const { initDb } = await import('./db/index.js');
-        const { ImpactGraphService } = await import('./graph/ImpactGraphService.js');
-
-        const db = initDb(projectId);
-        try {
-          const service = new ImpactGraphService(db);
-          const result = await service.analyzeImpact(targets, {
-            depth,
-            testsOnly: options.testsOnly,
-            includePaths: false,
-          });
-
-          if (options.json) {
-            process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
-          } else {
-            console.log('');
-            console.log(`━━━━ Affected by: ${targets.join(', ')} ━━━━`);
-            console.log('');
-
-            if (result.warnings.length > 0) {
-              console.log('⚠️  Warnings:');
-              for (const warning of result.warnings) {
-                console.log(`  ${warning}`);
-              }
-              console.log('');
-            }
-
-            const allTests = [...result.directTests, ...result.indirectTests];
-            if (allTests.length > 0) {
-              console.log(`【Affected Tests】 (${allTests.length})`);
-              for (const test of allTests.slice(0, 20)) {
-                const score = test.score.toFixed(3);
-                const direct = test.isDirect ? '[direct]' : '[indirect]';
-                const name = test.testName ? `"${test.testName}"` : path.basename(test.filePath);
-                console.log(`  ${score}  ${direct}  ${name}`);
-                console.log(`       ${test.filePath}`);
-                console.log(`       ${test.reason}`);
-              }
-              console.log('');
-            } else {
-              console.log('No affected tests found.');
-              console.log('');
-            }
-
-            if (!options.testsOnly && result.affectedFiles.length > 0) {
-              console.log(`【Affected Files】 (${result.affectedFiles.length})`);
-              for (const file of result.affectedFiles.slice(0, 15)) {
-                const score = file.score.toFixed(3);
-                console.log(`  ${score}  ${file.filePath}`);
-              }
-              console.log('');
-            }
-
-            if (allTests.length === 0 && result.affectedFiles.length === 0) {
-              console.log('💡 Tip: The graph may not be indexed yet. Run "ace index" first.');
-              console.log('');
-            }
-          }
-        } finally {
-          db.close();
-        }
-      } catch (err) {
-        const error = err as { message?: string; stack?: string };
-        logger.error({ err, stack: error.stack }, `查找受影响目标失败: ${error.message}`);
-        process.exit(1);
-      }
-    },
-  );
+// TODO: Implement ImpactGraphService
+// cli
+//   .command('affected <target...>', '查找受影响的测试和文件')
+//   .option('--depth <n>', '分析深度', { default: '2' })
+//   .option('--json', '输出 JSON 格式')
+//   .option('--tests-only', '仅显示测试文件')
+//   .action(
+//     async (targets: string[], options: { depth?: string; json?: boolean; testsOnly?: boolean }) => {
+//       logger.error('Affected analysis not yet implemented');
+//       process.exit(1);
+//     },
+//   );
 
 cli.help();
 cli.parse();
