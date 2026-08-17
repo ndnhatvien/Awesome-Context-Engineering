@@ -342,6 +342,25 @@ export function createHttpServerApp(): Express {
   // Basic middleware
   app.use(express.json());
 
+  // Root endpoint - service info
+  app.get('/', (_req: Request, res: Response) => {
+    res.json({
+      name: 'ACE (Awesome Context Engineering)',
+      version: SERVER_VERSION,
+      status: 'ok',
+      endpoints: {
+        health: '/health',
+        models: '/get-models',
+        mcp: '/mcp',
+      },
+    });
+  });
+
+  // Favicon - return 204 to avoid browser warnings
+  app.get('/favicon.ico', (_req: Request, res: Response) => {
+    res.status(204).end();
+  });
+
   // Health check endpoint
   app.get('/health', (_req: Request, res: Response) => {
     res.json({
