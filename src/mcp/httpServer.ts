@@ -9,6 +9,7 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import express, { type Express, type Request, type Response } from 'express';
+import { getDashboardStats } from '../dashboard/analyticsService.js';
 import { logger } from '../utils/logger.js';
 import {
   codebaseImpactSchema,
@@ -342,18 +343,112 @@ export function createHttpServerApp(): Express {
   // Basic middleware
   app.use(express.json());
 
-  // Root endpoint - service info
+  // Root endpoint - dashboard UI
   app.get('/', (_req: Request, res: Response) => {
-    res.json({
-      name: 'ACE (Awesome Context Engineering)',
-      version: SERVER_VERSION,
-      status: 'ok',
-      endpoints: {
-        health: '/health',
-        models: '/get-models',
-        mcp: '/mcp',
-      },
-    });
+    res.type('html').send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ACE - Awesome Context Engineering</title>
+  <style>
+    :root {
+      --primary: #6366f1;
+      --primary-hover: #818cf8;
+      --success: #22c55e;
+      --warning: #eab308;
+      --danger: #ef4444;
+      --bg: #0f0f23;
+      --bg-card: rgba(30, 30, 60, 0.6);
+      --text-primary: #e2e8f0;
+      --text-secondary: #94a3b8;
+      --border-card: rgba(255, 255, 255, 0.08);
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); color: var(--text-primary); min-height: 100vh; padding: 32px; }
+    .container { max-width: 1200px; margin: 0 auto; }
+    header { text-align: center; margin-bottom: 48px; }
+    header h1 { font-size: 2rem; font-weight: 700; margin-bottom: 8px; }
+    header p { color: var(--text-secondary); font-size: 1rem; }
+    .endpoints { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; margin-bottom: 48px; }
+    .endpoint-card { background: var(--bg-card); border: 1px solid var(--border-card); border-radius: 12px; padding: 16px 24px; text-decoration: none; color: var(--text-primary); transition: transform 0.2s, box-shadow 0.2s; }
+    .endpoint-card:hover { transform: translateY(-2px); box-shadow: 0 8px 16px rgba(0,0,0,0.3); }
+    .endpoint-card .label { font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; }
+    .endpoint-card .path { font-size: 1.1rem; font-weight: 600; margin-top: 4px; font-family: monospace; }
+    .stats-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+    .stats-header h2 { font-size: 1.5rem; font-weight: 700; }
+    .refresh-btn { padding: 8px 16px; background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.3); border-radius: 8px; color: var(--primary); cursor: pointer; font-size: 0.85rem; font-weight: 500; transition: all 0.2s; }
+    .refresh-btn:hover { background: rgba(99,102,241,0.2); }
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; margin-bottom: 24px; }
+    .stat-card { background: var(--bg-card); border: 1px solid var(--border-card); border-radius: 16px; padding: 24px; transition: transform 0.2s; }
+    .stat-card:hover { transform: translateY(-2px); box-shadow: 0 12px 24px rgba(0,0,0,0.4); }
+    .stat-card-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+    .stat-icon { font-size: 1.8rem; }
+    .stat-card-title { font-size: 0.9rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; }
+    .stat-value { font-size: 2.5rem; font-weight: 700; margin-bottom: 8px; }
+    .stat-label { font-size: 0.85rem; color: var(--text-secondary); }
+    .stat-primary { color: var(--primary); }
+    .stat-success { color: var(--success); }
+    .stat-danger { color: var(--danger); }
+    .language-chart { background: var(--bg-card); border: 1px solid var(--border-card); border-radius: 16px; padding: 24px; }
+    .language-chart h3 { margin-bottom: 20px; font-size: 1.1rem; }
+    .language-item { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+    .language-name { min-width: 100px; font-size: 0.9rem; font-weight: 500; }
+    .language-bar-container { flex: 1; height: 8px; background: rgba(255,255,255,0.05); border-radius: 4px; overflow: hidden; }
+    .language-bar { height: 100%; background: linear-gradient(90deg, var(--primary), var(--primary-hover)); border-radius: 4px; transition: width 0.5s ease; }
+    .language-count { min-width: 60px; text-align: right; font-size: 0.85rem; color: var(--text-secondary); }
+    .error { color: var(--danger); text-align: center; padding: 40px; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+    .loading .stat-value { animation: pulse 1.5s ease-in-out infinite; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>ACE</h1>
+      <p>Awesome Context Engineering &mdash; Semantic Retrieval Engine</p>
+    </header>
+    <div class="endpoints">
+      <a class="endpoint-card" href="/health"><div class="label">Health</div><div class="path">/health</div></a>
+      <a class="endpoint-card" href="/get-models"><div class="label">Models</div><div class="path">/get-models</div></a>
+      <a class="endpoint-card" href="/api/dashboard/stats"><div class="label">Stats API</div><div class="path">/api/dashboard/stats</div></a>
+    </div>
+    <div class="stats-header">
+      <h2>Dashboard</h2>
+      <button class="refresh-btn" onclick="loadStats()">Refresh</button>
+    </div>
+    <div class="stats-grid" id="stats-grid">
+      <div class="stat-card"><div class="stat-card-header"><span class="stat-icon">⏱</span><div class="stat-card-title">Uptime</div></div><div class="stat-value stat-success" id="stat-uptime">-</div><div class="stat-label" id="stat-version">ACE Server</div></div>
+      <div class="stat-card"><div class="stat-card-header"><span class="stat-icon">📁</span><div class="stat-card-title">Indexed Files</div></div><div class="stat-value stat-primary" id="stat-files">-</div><div class="stat-label">Files in workspace</div></div>
+      <div class="stat-card"><div class="stat-card-header"><span class="stat-icon">🧩</span><div class="stat-card-title">Chunks</div></div><div class="stat-value stat-primary" id="stat-chunks">-</div><div class="stat-label">Semantic code chunks</div></div>
+      <div class="stat-card"><div class="stat-card-header"><span class="stat-icon">💾</span><div class="stat-card-title">Storage</div></div><div class="stat-value stat-primary" id="stat-size">-</div><div class="stat-label">Total DB size</div></div>
+    </div>
+    <div class="language-chart"><h3>Languages</h3><div id="lang-content"><div class="stat-label" style="text-align:center;padding:40px">Loading...</div></div></div>
+  </div>
+  <script>
+    async function loadStats() {
+      try {
+        const r = await fetch('/api/dashboard/stats');
+        if (!r.ok) throw new Error(r.statusText);
+        const s = await r.json();
+        document.getElementById('stat-uptime').textContent = s.system?.uptime || '-';
+        document.getElementById('stat-version').textContent = s.system?.nodeVersion || 'ACE Server';
+        document.getElementById('stat-files').textContent = s.index?.totalFiles ?? '-';
+        document.getElementById('stat-chunks').textContent = s.index?.totalChunks ?? '-';
+        document.getElementById('stat-size').textContent = s.index?.totalSize || '-';
+        const langs = s.index?.languages || {};
+        const entries = Object.entries(langs).sort((a,b) => b[1]-a[1]);
+        const el = document.getElementById('lang-content');
+        if (!entries.length) { el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-secondary)">No data yet &mdash; run <code>ace index</code> first</div>'; return; }
+        const max = Math.max(...entries.map(e=>e[1]));
+        el.innerHTML = entries.slice(0,10).map(([name,count]) => '<div class="language-item"><div class="language-name">'+name+'</div><div class="language-bar-container"><div class="language-bar" style="width:'+(count/max*100)+'%"></div></div><div class="language-count">'+count.toLocaleString()+'</div></div>').join('');
+      } catch(e) { document.getElementById('lang-content').innerHTML = '<div class="error">Failed to load stats</div>'; }
+    }
+    loadStats();
+    setInterval(loadStats, 30000);
+  </script>
+</body>
+</html>`);
   });
 
   // Favicon - return 204 to avoid browser warnings
@@ -368,6 +463,28 @@ export function createHttpServerApp(): Express {
       service: 'ace-mcp-http',
       version: SERVER_VERSION,
     });
+  });
+
+  // Dashboard stats API
+  app.get('/api/dashboard/stats', (_req: Request, res: Response) => {
+    try {
+      const stats = getDashboardStats();
+      res.json(stats);
+    } catch (err) {
+      logger.debug({ error: (err as Error).message }, 'Dashboard stats unavailable');
+      res.json({
+        index: {
+          totalFiles: 0,
+          totalChunks: 0,
+          totalSize: '0 B',
+          lastIndexed: null,
+          languages: {},
+        },
+        tokens: { totalTokens: 0, activeTokens: 0, revokedTokens: 0, recentActivity: [] },
+        search: { totalQueries: 0, avgResponseTime: 0, popularQueries: [], recentQueries: [] },
+        system: { uptime: '0m', nodeVersion: process.version },
+      });
+    }
   });
 
   // Model endpoints (compatibility with existing clients)
