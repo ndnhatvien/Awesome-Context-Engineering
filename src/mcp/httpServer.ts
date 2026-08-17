@@ -4,13 +4,22 @@
  * HTTP transport for MCP server using StreamableHTTPServerTransport
  */
 
+import fs from 'node:fs';
 import type { Server as HttpServer } from 'node:http';
+import path from 'node:path';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import express, { type Express, type Request, type Response } from 'express';
+import {
+  generateSessionToken,
+  getAdminAuthConfig,
+  verifyAdminPassword,
+  verifySessionToken,
+} from '../auth/adminAuth.js';
 import { getDashboardStats } from '../dashboard/analyticsService.js';
 import { logger } from '../utils/logger.js';
+import { getDefaultEnvFilePath, getPreferredHomeEnvFilePath } from '../utils/paths.js';
 import {
   codebaseImpactSchema,
   codebaseRetrievalSchema,
@@ -234,6 +243,91 @@ Note: Only TypeScript/JavaScript files are analyzed in the MVP. Graph must be bu
 ];
 
 // ===========================================
+// Helper Functions
+// ===========================================
+
+function getActiveEnvFilePath(): string {
+  const preferredHomeEnvPath = getPreferredHomeEnvFilePath();
+  const fallbackEnvPath = getDefaultEnvFilePath();
+  const localEnvPath = path.join(process.cwd(), '.env');
+
+  if (fs.existsSync(localEnvPath)) return localEnvPath;
+  if (fs.existsSync(preferredHomeEnvPath)) return preferredHomeEnvPath;
+  if (fs.existsSync(fallbackEnvPath)) return fallbackEnvPath;
+
+  const preferredDir = path.dirname(preferredHomeEnvPath);
+  try {
+    fs.mkdirSync(preferredDir, { recursive: true });
+    return preferredHomeEnvPath;
+  } catch {
+    return fallbackEnvPath;
+  }
+}
+
+function updateEnvFile(updates: Record<string, string>): void {
+  const filePath = getActiveEnvFilePath();
+  let content = '';
+  if (fs.existsSync(filePath)) {
+    content = fs.readFileSync(filePath, 'utf-8');
+  }
+
+  const lines = content.split('\n');
+  const keysToUpdate = new Set(Object.keys(updates));
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (line && !line.startsWith('#')) {
+      const eqIdx = line.indexOf('=');
+      if (eqIdx === -1) continue;
+      const key = line.substring(0, eqIdx).trim();
+      if (keysToUpdate.has(key)) {
+        lines[i] = `${key}=${updates[key]}`;
+        keysToUpdate.delete(key);
+      }
+    }
+  }
+
+  for (const key of keysToUpdate) {
+    lines.push(`${key}=${updates[key]}`);
+  }
+
+  fs.writeFileSync(filePath, lines.join('\n'), 'utf-8');
+}
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function maskApiKey(key: string): string {
+  if (!key) return '';
+  if (key.length <= 8) return '********';
+  return key.slice(0, 5) + '*'.repeat(12) + key.slice(-4);
+}
+
+function maskApiKeys(keys: string): string {
+  if (!keys) return '';
+  return keys
+    .split(',')
+    .map((k) => maskApiKey(k.trim()))
+    .join(', ');
+}
+
+function parseCookies(cookieHeader?: string): Record<string, string> {
+  const cookies: Record<string, string> = {};
+  if (!cookieHeader) return cookies;
+  for (const part of cookieHeader.split(';')) {
+    const [name, ...rest] = part.split('=');
+    if (name) cookies[name.trim()] = rest.join('=').trim();
+  }
+  return cookies;
+}
+
+// ===========================================
 // MCP Server Factory
 // ===========================================
 
@@ -343,105 +437,213 @@ export function createHttpServerApp(): Express {
   // Basic middleware
   app.use(express.json());
 
-  // Root endpoint - dashboard UI
-  app.get('/', (_req: Request, res: Response) => {
+  // Root endpoint - admin dashboard UI
+  app.get('/', (req: Request, res: Response) => {
+    const config = getAdminAuthConfig();
+    const cookies = parseCookies(req.headers.cookie);
+    const sessionToken = cookies.ace_session;
+    const isAuthenticated =
+      sessionToken && config.password && verifySessionToken(sessionToken, config.password);
+
+    if (!isAuthenticated) {
+      return res.type('html').send(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ACE Admin - Login</title>
+  <style>
+    :root { --primary: #6366f1; --bg: #0f0f23; --bg-card: rgba(30,30,60,0.6); --text: #e2e8f0; --text2: #94a3b8; --danger: #ef4444; --border: rgba(255,255,255,0.08); }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family: 'Inter',-apple-system,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; display:flex; align-items:center; justify-content:center; }
+    .login-box { background:var(--bg-card); border:1px solid var(--border); border-radius:16px; padding:48px; width:100%; max-width:400px; }
+    h1 { font-size:1.8rem; margin-bottom:8px; text-align:center; }
+    .subtitle { color:var(--text2); text-align:center; margin-bottom:32px; font-size:0.9rem; }
+    .form-group { margin-bottom:20px; }
+    label { display:block; font-size:0.85rem; color:var(--text2); margin-bottom:8px; }
+    input[type="password"] { width:100%; padding:12px 16px; background:rgba(255,255,255,0.05); border:1px solid var(--border); border-radius:8px; color:var(--text); font-size:1rem; outline:none; transition: border-color 0.2s; }
+    input:focus { border-color:var(--primary); }
+    .btn { width:100%; padding:12px; background:var(--primary); border:none; border-radius:8px; color:#fff; font-size:1rem; font-weight:600; cursor:pointer; transition:opacity 0.2s; }
+    .btn:hover { opacity:0.9; }
+    .error-msg { color:var(--danger); font-size:0.85rem; text-align:center; margin-bottom:16px; display:none; }
+  </style>
+</head>
+<body>
+  <div class="login-box">
+    <h1>ACE</h1>
+    <div class="subtitle">Admin Dashboard Login</div>
+    <div class="error-msg" id="error-msg">Invalid password</div>
+    <form action="/admin/login" method="POST">
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" placeholder="Enter admin password" required autofocus />
+      </div>
+      <button type="submit" class="btn">Sign In</button>
+    </form>
+  </div>
+</body>
+</html>`);
+    }
+
+    // Authenticated - show dashboard
+    const hasEmbeddingKey = !!(process.env.EMBEDDINGS_API_KEYS || process.env.EMBEDDINGS_API_KEY);
+    const hasRerankKey = !!(process.env.RERANK_API_KEYS || process.env.RERANK_API_KEY);
+    const envFilePath = getActiveEnvFilePath();
+
     res.type('html').send(`<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ACE - Awesome Context Engineering</title>
+  <title>ACE Admin Dashboard</title>
   <style>
     :root {
-      --primary: #6366f1;
-      --primary-hover: #818cf8;
-      --success: #22c55e;
-      --warning: #eab308;
-      --danger: #ef4444;
-      --bg: #0f0f23;
-      --bg-card: rgba(30, 30, 60, 0.6);
-      --text-primary: #e2e8f0;
-      --text-secondary: #94a3b8;
-      --border-card: rgba(255, 255, 255, 0.08);
+      --primary: #6366f1; --primary-hover: #818cf8; --success: #22c55e; --warning: #eab308; --danger: #ef4444;
+      --bg: #0f0f23; --bg-card: rgba(30,30,60,0.6); --bg-input: rgba(255,255,255,0.05);
+      --text: #e2e8f0; --text2: #94a3b8; --border: rgba(255,255,255,0.08);
     }
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); color: var(--text-primary); min-height: 100vh; padding: 32px; }
-    .container { max-width: 1200px; margin: 0 auto; }
-    header { text-align: center; margin-bottom: 48px; }
-    header h1 { font-size: 2rem; font-weight: 700; margin-bottom: 8px; }
-    header p { color: var(--text-secondary); font-size: 1rem; }
-    .endpoints { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; margin-bottom: 48px; }
-    .endpoint-card { background: var(--bg-card); border: 1px solid var(--border-card); border-radius: 12px; padding: 16px 24px; text-decoration: none; color: var(--text-primary); transition: transform 0.2s, box-shadow 0.2s; }
-    .endpoint-card:hover { transform: translateY(-2px); box-shadow: 0 8px 16px rgba(0,0,0,0.3); }
-    .endpoint-card .label { font-size: 0.8rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; }
-    .endpoint-card .path { font-size: 1.1rem; font-weight: 600; margin-top: 4px; font-family: monospace; }
-    .stats-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
-    .stats-header h2 { font-size: 1.5rem; font-weight: 700; }
-    .refresh-btn { padding: 8px 16px; background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.3); border-radius: 8px; color: var(--primary); cursor: pointer; font-size: 0.85rem; font-weight: 500; transition: all 0.2s; }
-    .refresh-btn:hover { background: rgba(99,102,241,0.2); }
-    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; margin-bottom: 24px; }
-    .stat-card { background: var(--bg-card); border: 1px solid var(--border-card); border-radius: 16px; padding: 24px; transition: transform 0.2s; }
-    .stat-card:hover { transform: translateY(-2px); box-shadow: 0 12px 24px rgba(0,0,0,0.4); }
-    .stat-card-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
-    .stat-icon { font-size: 1.8rem; }
-    .stat-card-title { font-size: 0.9rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em; }
-    .stat-value { font-size: 2.5rem; font-weight: 700; margin-bottom: 8px; }
-    .stat-label { font-size: 0.85rem; color: var(--text-secondary); }
-    .stat-primary { color: var(--primary); }
-    .stat-success { color: var(--success); }
-    .stat-danger { color: var(--danger); }
-    .language-chart { background: var(--bg-card); border: 1px solid var(--border-card); border-radius: 16px; padding: 24px; }
-    .language-chart h3 { margin-bottom: 20px; font-size: 1.1rem; }
-    .language-item { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
-    .language-name { min-width: 100px; font-size: 0.9rem; font-weight: 500; }
-    .language-bar-container { flex: 1; height: 8px; background: rgba(255,255,255,0.05); border-radius: 4px; overflow: hidden; }
-    .language-bar { height: 100%; background: linear-gradient(90deg, var(--primary), var(--primary-hover)); border-radius: 4px; transition: width 0.5s ease; }
-    .language-count { min-width: 60px; text-align: right; font-size: 0.85rem; color: var(--text-secondary); }
-    .error { color: var(--danger); text-align: center; padding: 40px; }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
-    .loading .stat-value { animation: pulse 1.5s ease-in-out infinite; }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family: 'Inter',-apple-system,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; padding:24px; }
+    .top-bar { display:flex; align-items:center; justify-content:space-between; margin-bottom:32px; max-width:1100px; margin-left:auto; margin-right:auto; }
+    .top-bar h1 { font-size:1.5rem; }
+    .top-bar form { margin:0; }
+    .btn-logout { background:none; border:1px solid var(--border); color:var(--text2); padding:8px 16px; border-radius:8px; cursor:pointer; font-size:0.85rem; transition:all 0.2s; }
+    .btn-logout:hover { border-color:var(--danger); color:var(--danger); }
+    .container { max-width:1100px; margin:0 auto; }
+    .section-title { font-size:1.1rem; font-weight:700; margin-bottom:16px; display:flex; align-items:center; gap:8px; }
+    .badge { display:inline-block; padding:2px 10px; border-radius:20px; font-size:0.75rem; font-weight:600; }
+    .badge-ok { background:rgba(34,197,94,0.15); color:var(--success); }
+    .badge-missing { background:rgba(239,68,68,0.15); color:var(--danger); }
+    .stats-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:16px; margin-bottom:32px; }
+    .stat-card { background:var(--bg-card); border:1px solid var(--border); border-radius:12px; padding:20px; }
+    .stat-label { font-size:0.8rem; color:var(--text2); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:8px; }
+    .stat-value { font-size:1.8rem; font-weight:700; }
+    .stat-primary { color:var(--primary); }
+    .stat-success { color:var(--success); }
+    .card { background:var(--bg-card); border:1px solid var(--border); border-radius:12px; padding:24px; margin-bottom:24px; }
+    .card-subtitle { font-size:0.9rem; font-weight:600; color:var(--text2); margin-bottom:16px; margin-top:24px; }
+    .form-group { margin-bottom:16px; }
+    .form-group label { display:block; font-size:0.85rem; color:var(--text2); margin-bottom:6px; }
+    .form-group input { width:100%; padding:10px 14px; background:var(--bg-input); border:1px solid var(--border); border-radius:8px; color:var(--text); font-size:0.9rem; outline:none; transition:border-color 0.2s; }
+    .form-group input:focus { border-color:var(--primary); }
+    .form-group input[readonly] { opacity:0.6; cursor:default; }
+    .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+    .input-wrapper { position:relative; }
+    .input-wrapper input { padding-right:40px; }
+    .toggle-vis { position:absolute; right:8px; top:50%; transform:translateY(-50%); background:none; border:none; color:var(--text2); cursor:pointer; padding:4px; }
+    .toggle-vis:hover { color:var(--text); }
+    .btn-save { padding:12px 32px; background:var(--primary); border:none; border-radius:8px; color:#fff; font-size:0.95rem; font-weight:600; cursor:pointer; transition:all 0.2s; margin-top:8px; }
+    .btn-save:hover { background:var(--primary-hover); }
+    .lang-chart { background:var(--bg-card); border:1px solid var(--border); border-radius:12px; padding:24px; margin-bottom:24px; }
+    .lang-item { display:flex; align-items:center; gap:12px; margin-bottom:10px; }
+    .lang-name { min-width:80px; font-size:0.85rem; }
+    .lang-bar-bg { flex:1; height:6px; background:rgba(255,255,255,0.05); border-radius:3px; overflow:hidden; }
+    .lang-bar { height:100%; background:linear-gradient(90deg,var(--primary),var(--primary-hover)); border-radius:3px; }
+    .lang-count { min-width:50px; text-align:right; font-size:0.8rem; color:var(--text2); }
+    .success-msg { color:var(--success); font-size:0.85rem; margin-top:8px; display:none; }
+    .error { color:var(--danger); text-align:center; padding:20px; }
+    @media (max-width:640px) { .grid-2 { grid-template-columns:1fr; } body { padding:16px; } }
   </style>
 </head>
 <body>
+  <div class="top-bar">
+    <h1>ACE Dashboard</h1>
+    <form action="/admin/logout" method="POST"><button type="submit" class="btn-logout">Logout</button></form>
+  </div>
   <div class="container">
-    <header>
-      <h1>ACE</h1>
-      <p>Awesome Context Engineering &mdash; Semantic Retrieval Engine</p>
-    </header>
-    <div class="endpoints">
-      <a class="endpoint-card" href="/health"><div class="label">Health</div><div class="path">/health</div></a>
-      <a class="endpoint-card" href="/get-models"><div class="label">Models</div><div class="path">/get-models</div></a>
-      <a class="endpoint-card" href="/api/dashboard/stats"><div class="label">Stats API</div><div class="path">/api/dashboard/stats</div></a>
-    </div>
-    <div class="stats-header">
-      <h2>Dashboard</h2>
-      <button class="refresh-btn" onclick="loadStats()">Refresh</button>
-    </div>
     <div class="stats-grid" id="stats-grid">
-      <div class="stat-card"><div class="stat-card-header"><span class="stat-icon">⏱</span><div class="stat-card-title">Uptime</div></div><div class="stat-value stat-success" id="stat-uptime">-</div><div class="stat-label" id="stat-version">ACE Server</div></div>
-      <div class="stat-card"><div class="stat-card-header"><span class="stat-icon">📁</span><div class="stat-card-title">Indexed Files</div></div><div class="stat-value stat-primary" id="stat-files">-</div><div class="stat-label">Files in workspace</div></div>
-      <div class="stat-card"><div class="stat-card-header"><span class="stat-icon">🧩</span><div class="stat-card-title">Chunks</div></div><div class="stat-value stat-primary" id="stat-chunks">-</div><div class="stat-label">Semantic code chunks</div></div>
-      <div class="stat-card"><div class="stat-card-header"><span class="stat-icon">💾</span><div class="stat-card-title">Storage</div></div><div class="stat-value stat-primary" id="stat-size">-</div><div class="stat-label">Total DB size</div></div>
+      <div class="stat-card"><div class="stat-label">Uptime</div><div class="stat-value stat-success" id="stat-uptime">-</div></div>
+      <div class="stat-card"><div class="stat-label">Indexed Files</div><div class="stat-value stat-primary" id="stat-files">-</div></div>
+      <div class="stat-card"><div class="stat-label">Chunks</div><div class="stat-value stat-primary" id="stat-chunks">-</div></div>
+      <div class="stat-card"><div class="stat-label">Storage</div><div class="stat-value stat-primary" id="stat-size">-</div></div>
     </div>
-    <div class="language-chart"><h3>Languages</h3><div id="lang-content"><div class="stat-label" style="text-align:center;padding:40px">Loading...</div></div></div>
+
+    <div class="lang-chart"><h3 style="margin-bottom:16px;font-size:1rem;">Languages</h3><div id="lang-content"><div style="text-align:center;padding:20px;color:var(--text2)">Loading...</div></div></div>
+
+    <div class="card">
+      <div class="section-title">
+        Configuration
+        <span class="badge ${hasEmbeddingKey ? 'badge-ok' : 'badge-missing'}">Embeddings ${hasEmbeddingKey ? 'OK' : 'Missing'}</span>
+        <span class="badge ${hasRerankKey ? 'badge-ok' : 'badge-missing'}">Reranker ${hasRerankKey ? 'OK' : 'Missing'}</span>
+      </div>
+      <div style="font-size:0.8rem;color:var(--text2);margin-bottom:16px;">Config file: ${escapeHtml(envFilePath)}</div>
+
+      <form action="/admin/configure" method="POST" id="config-form">
+        <div class="card-subtitle">Embedding Configuration</div>
+        <div class="form-group">
+          <label>API Key (comma-separated for multi-key rotation)</label>
+          <div class="input-wrapper">
+            <input type="password" name="embeddings_api_keys" value="${escapeHtml(maskApiKeys(process.env.EMBEDDINGS_API_KEYS || process.env.EMBEDDINGS_API_KEY || ''))}" placeholder="sk-xxxxxxxxxxxx" />
+            <button type="button" class="toggle-vis" onclick="toggleVis(this)"><svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg></button>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label>Base URL</label>
+            <input type="text" name="embeddings_base_url" value="${escapeHtml(process.env.EMBEDDINGS_BASE_URL || '')}" placeholder="https://api.siliconflow.cn/v1" />
+          </div>
+          <div class="form-group">
+            <label>Model</label>
+            <input type="text" name="embeddings_model" value="${escapeHtml(process.env.EMBEDDINGS_MODEL || '')}" placeholder="BAAI/bge-m3" />
+          </div>
+        </div>
+
+        <div class="card-subtitle">Reranker Configuration</div>
+        <div class="form-group">
+          <label>API Key (comma-separated for multi-key rotation)</label>
+          <div class="input-wrapper">
+            <input type="password" name="rerank_api_keys" value="${escapeHtml(maskApiKeys(process.env.RERANK_API_KEYS || process.env.RERANK_API_KEY || ''))}" placeholder="sk-xxxxxxxxxxxx" />
+            <button type="button" class="toggle-vis" onclick="toggleVis(this)"><svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg></button>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label>Base URL</label>
+            <input type="text" name="rerank_base_url" value="${escapeHtml(process.env.RERANK_BASE_URL || '')}" placeholder="https://api.jina.ai/v1" />
+          </div>
+          <div class="form-group">
+            <label>Model</label>
+            <input type="text" name="rerank_model" value="${escapeHtml(process.env.RERANK_MODEL || '')}" placeholder="jina-reranker-v2-base-multilingual" />
+          </div>
+        </div>
+
+        <div class="card-subtitle">Profile &amp; Logging</div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label>Profile</label>
+            <input type="text" name="ace_profile" value="${escapeHtml(process.env.ACE_PROFILE || 'balanced')}" placeholder="quality | balanced | performance" />
+          </div>
+          <div class="form-group">
+            <label>Log Level</label>
+            <input type="text" name="log_level" value="${escapeHtml(process.env.LOG_LEVEL || 'info')}" placeholder="debug | info | warn | error" />
+          </div>
+        </div>
+
+        <div class="success-msg" id="save-success">Configuration saved successfully!</div>
+        <button type="submit" class="btn-save">Save Configuration</button>
+      </form>
+    </div>
   </div>
   <script>
+    function toggleVis(btn) {
+      const input = btn.parentElement.querySelector('input');
+      input.type = input.type === 'password' ? 'text' : 'password';
+    }
     async function loadStats() {
       try {
         const r = await fetch('/api/dashboard/stats');
         if (!r.ok) throw new Error(r.statusText);
         const s = await r.json();
         document.getElementById('stat-uptime').textContent = s.system?.uptime || '-';
-        document.getElementById('stat-version').textContent = s.system?.nodeVersion || 'ACE Server';
         document.getElementById('stat-files').textContent = s.index?.totalFiles ?? '-';
         document.getElementById('stat-chunks').textContent = s.index?.totalChunks ?? '-';
         document.getElementById('stat-size').textContent = s.index?.totalSize || '-';
         const langs = s.index?.languages || {};
         const entries = Object.entries(langs).sort((a,b) => b[1]-a[1]);
         const el = document.getElementById('lang-content');
-        if (!entries.length) { el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text-secondary)">No data yet &mdash; run <code>ace index</code> first</div>'; return; }
+        if (!entries.length) { el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text2)">No data yet &mdash; run <code>ace index</code></div>'; return; }
         const max = Math.max(...entries.map(e=>e[1]));
-        el.innerHTML = entries.slice(0,10).map(([name,count]) => '<div class="language-item"><div class="language-name">'+name+'</div><div class="language-bar-container"><div class="language-bar" style="width:'+(count/max*100)+'%"></div></div><div class="language-count">'+count.toLocaleString()+'</div></div>').join('');
+        el.innerHTML = entries.slice(0,10).map(([name,count]) => '<div class="lang-item"><div class="lang-name">'+name+'</div><div class="lang-bar-bg"><div class="lang-bar" style="width:'+(count/max*100)+'%"></div></div><div class="lang-count">'+count.toLocaleString()+'</div></div>').join('');
       } catch(e) { document.getElementById('lang-content').innerHTML = '<div class="error">Failed to load stats</div>'; }
     }
     loadStats();
@@ -449,6 +651,79 @@ export function createHttpServerApp(): Express {
   </script>
 </body>
 </html>`);
+  });
+
+  // Admin Login Action
+  app.post('/admin/login', (req: Request, res: Response) => {
+    const { password } = req.body;
+    const config = getAdminAuthConfig();
+
+    if (password && config.password && verifyAdminPassword(password, config.password)) {
+      const sessionToken = generateSessionToken(config.password);
+      res.setHeader(
+        'Set-Cookie',
+        `ace_session=${encodeURIComponent(sessionToken)}; Path=/; HttpOnly; Max-Age=86400`,
+      );
+      return res.redirect('/');
+    }
+    return res.redirect('/?error=1');
+  });
+
+  // Admin Logout Action
+  app.post('/admin/logout', (_req: Request, res: Response) => {
+    res.setHeader('Set-Cookie', 'ace_session=; Path=/; HttpOnly; Max-Age=0');
+    res.redirect('/');
+  });
+
+  // Admin Configuration Save Action
+  app.post('/admin/configure', (req: Request, res: Response) => {
+    const config = getAdminAuthConfig();
+    const cookies = parseCookies(req.headers.cookie);
+    const sessionToken = cookies.ace_session;
+
+    if (!sessionToken || !config.password || !verifySessionToken(sessionToken, config.password)) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const {
+      embeddings_api_keys,
+      embeddings_base_url,
+      embeddings_model,
+      rerank_api_keys,
+      rerank_base_url,
+      rerank_model,
+      ace_profile,
+      log_level,
+    } = req.body;
+
+    const updates: Record<string, string> = {};
+
+    if (embeddings_api_keys !== undefined && !embeddings_api_keys.includes('*')) {
+      updates.EMBEDDINGS_API_KEYS = embeddings_api_keys;
+    }
+    if (embeddings_base_url !== undefined) updates.EMBEDDINGS_BASE_URL = embeddings_base_url;
+    if (embeddings_model !== undefined) updates.EMBEDDINGS_MODEL = embeddings_model;
+
+    if (rerank_api_keys !== undefined && !rerank_api_keys.includes('*')) {
+      updates.RERANK_API_KEYS = rerank_api_keys;
+    }
+    if (rerank_base_url !== undefined) updates.RERANK_BASE_URL = rerank_base_url;
+    if (rerank_model !== undefined) updates.RERANK_MODEL = rerank_model;
+
+    if (ace_profile !== undefined) updates.ACE_PROFILE = ace_profile;
+    if (log_level !== undefined) updates.LOG_LEVEL = log_level;
+
+    if (Object.keys(updates).length > 0) {
+      try {
+        updateEnvFile(updates);
+        Object.assign(process.env, updates);
+        logger.info({ keys: Object.keys(updates) }, 'Admin updated .env configuration');
+      } catch (err) {
+        logger.error({ error: (err as Error).message }, 'Failed to update .env file');
+      }
+    }
+
+    res.redirect('/');
   });
 
   // Favicon - return 204 to avoid browser warnings
