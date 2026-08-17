@@ -354,6 +354,9 @@ export function createHttpServerApp(): Express {
   // Model endpoints (compatibility with existing clients)
   app.get('/get-models', (_req: Request, res: Response) => {
     res.json({
+      status: 'ok',
+      service: 'ace-mcp-http',
+      version: SERVER_VERSION,
       models: [
         {
           id: 'ace-retrieval',
@@ -366,6 +369,9 @@ export function createHttpServerApp(): Express {
 
   app.post('/get-models', (_req: Request, res: Response) => {
     res.json({
+      status: 'ok',
+      service: 'ace-mcp-http',
+      version: SERVER_VERSION,
       models: [
         {
           id: 'ace-retrieval',
@@ -379,6 +385,9 @@ export function createHttpServerApp(): Express {
   // Augment compatibility endpoints
   app.get('/augment/get-models', (_req: Request, res: Response) => {
     res.json({
+      status: 'ok',
+      service: 'ace-mcp-http',
+      version: SERVER_VERSION,
       models: [
         {
           id: 'ace-retrieval',
@@ -391,6 +400,9 @@ export function createHttpServerApp(): Express {
 
   app.post('/augment/get-models', (_req: Request, res: Response) => {
     res.json({
+      status: 'ok',
+      service: 'ace-mcp-http',
+      version: SERVER_VERSION,
       models: [
         {
           id: 'ace-retrieval',
