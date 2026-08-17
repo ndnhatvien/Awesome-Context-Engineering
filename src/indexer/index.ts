@@ -5,7 +5,7 @@
  * Currently not implemented but referenced by other modules.
  */
 
-export type Indexer = {}
+export type Indexer = Record<string, never>;
 
 export function getIndexer(): Indexer | null {
   return null;
