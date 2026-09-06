@@ -261,8 +261,6 @@ function extractMethods(
   edges: GraphEdge[],
   source: string,
 ): void {
-  const _fileNodeId = makeFileNodeId(filePath);
-
   for (let i = 0; i < classBodyNode.childCount; i++) {
     const child = classBodyNode.child(i);
     if (child && (child.type === 'method_definition' || child.type === 'public_field_definition')) {

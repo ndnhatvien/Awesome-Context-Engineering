@@ -4,24 +4,6 @@ import chardet from 'chardet';
 import iconv from 'iconv-lite';
 
 /**
- * 支持的编码列表（按优先级排序）
- */
-const _SUPPORTED_ENCODINGS = [
-  'UTF-8',
-  'UTF-16 LE',
-  'UTF-16 BE',
-  'UTF-32 LE',
-  'UTF-32 BE',
-  'GB18030', // 兼容 GBK 和 GB2312
-  'Big5',
-  'Shift_JIS',
-  'EUC-JP',
-  'EUC-KR',
-  'ISO-8859-1',
-  'windows-1252',
-];
-
-/**
  * 规范化编码名称，使其与 iconv-lite 兼容
  */
 function normalizeEncoding(encoding: string): string {

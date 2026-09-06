@@ -4,7 +4,6 @@
  * Inspired by NotepadAI's auto-commit-message feature
  */
 
-import { getRerankerClient } from '../api/reranker.js';
 import { logger } from '../utils/logger.js';
 import type { GitDiffResult } from './diff.js';
 import { getStagedDiff, truncateDiff } from './diff.js';
@@ -45,8 +44,6 @@ export async function generateCommitMessage(
   // Note: This is a workaround - ideally we'd use a dedicated LLM endpoint
   // But reranker can work for simple text generation tasks
   try {
-    const _rerankerClient = getRerankerClient();
-
     // Use reranker's underlying API for generation
     // This is hacky but works if the endpoint supports completion
     const message = await generateWithAPI(prompt, maxLength);

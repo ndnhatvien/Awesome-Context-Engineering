@@ -7,11 +7,8 @@ import { getDataBaseDir } from '../utils/paths.js';
 
 export class EmbeddingCache {
   private cacheDir: string;
-  // biome-ignore lint/correctness/noUnusedPrivateClassMembers: used in constructor for path generation
-  private model: string;
 
   constructor(model: string, customBaseDir?: string) {
-    this.model = model;
     const sanitizedModel = model.replace(/[^a-zA-Z0-9_-]/g, '_');
     const baseDir = customBaseDir || getDataBaseDir();
     this.cacheDir = path.join(baseDir, 'cache', 'embeddings', sanitizedModel);
