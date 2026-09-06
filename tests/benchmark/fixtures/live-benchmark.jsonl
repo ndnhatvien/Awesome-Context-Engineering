@@ -1,0 +1,7 @@
+{"id":"path-payment-service","query":"where is the PaymentService file","relevant":{"src/paymentService.ts":1}}
+{"id":"content-card-charging","query":"how does the card charging flow work","relevant":{"src/cardProcessor.ts":1}}
+{"id":"symbol-chargeCard","query":"chargeCard implementation details","relevant":{"src/cardProcessor.ts":1}}
+{"id":"symbol-voidPayment","query":"where is voidPayment defined","relevant":{"src/refund.ts":1}}
+{"id":"path-main","query":"entry point file src/main.ts","relevant":{"src/main.ts":1}}
+{"id":"content-tax","query":"compute tax rate for an amount in cents","relevant":{"src/tax.ts":1}}
+{"id":"path-payment-flow-ambiguous","query":"payment flow code","relevant":{"src/paymentService.ts":1}}

@@ -1,0 +1,41 @@
+{
+  "name": "@nv876620-design/ace-lang-all",
+  "version": "0.2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nv876620-design/ace-recall.git"
+  },
+  "homepage": "https://github.com/nv876620-design/ace-recall#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --out-dir dist --clean",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@nv876620-design/ace-lang-typescript": "workspace:*",
+    "@nv876620-design/ace-lang-kotlin": "workspace:*",
+    "@nv876620-design/ace-lang-csharp": "workspace:*",
+    "@nv876620-design/ace-lang-cpp": "workspace:*",
+    "@nv876620-design/ace-lang-java": "workspace:*",
+    "@nv876620-design/ace-lang-ruby": "workspace:*",
+    "@nv876620-design/ace-lang-c": "workspace:*",
+    "@nv876620-design/ace-lang-php": "workspace:*",
+    "@nv876620-design/ace-lang-rust": "workspace:*",
+    "@nv876620-design/ace-lang-swift": "workspace:*"
+  },
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts"
+  ]
+}

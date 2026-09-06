@@ -1,0 +1,17 @@
+node_modules
+openspec
+logs
+dist
+.env
+.claude
+.ace-tool/
+.snow
+.idea/
+.vscode/
+.DS_Store
+*.log
+*.tsbuildinfo
+
+!docs/logs/
+!docs/logs/*.md
+*.tgz

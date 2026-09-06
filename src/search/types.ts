@@ -1,0 +1,214 @@
+/**
+ * 搜索模块类型定义
+ */
+
+import type { ChunkRecord } from '../vectorStore/index.js';
+
+// ===========================================
+// 配置类型
+// ===========================================
+
+/** 搜索配置 */
+export interface SearchConfig {
+  // 召回
+  vectorTopK: number;
+  vectorTopM: number;
+  ftsTopKFiles: number;
+  lexChunksPerFile: number;
+  lexTotalChunks: number;
+
+  // 融合（Phase 1）
+  rrfK0: number;
+  wVec: number;
+  wLex: number;
+  fusedTopM: number;
+  /** 融合后、Rerank 前的单文件候选上限 */
+  preRerankPerFileCap: number;
+
+  // Rerank
+  rerankTopN: number;
+  maxRerankChars: number;
+  maxBreadcrumbChars: number;
+  headRatio: number;
+
+  // 扩展（Phase 2）
+  neighborHops: number;
+  breadcrumbExpandLimit: number;
+  importFilesPerSeed: number;
+  chunksPerImportFile: number;
+  decayNeighbor: number;
+  decayBreadcrumb: number;
+  decayImport: number;
+  decayDepth: number;
+
+  // ContextPacker
+  maxSegmentsPerFile: number;
+  maxTotalChars: number;
+
+  // === Smart TopK ===
+  /** 是否启用智能 TopK 策略 */
+  enableSmartTopK: boolean;
+
+  /**
+   * 动态阈值比例：dynamicThreshold 的 ratio 部分
+   * ratioThreshold = topScore * smartTopScoreRatio
+   * 推荐：0.4 ~ 0.6
+   */
+  smartTopScoreRatio: number;
+
+  /**
+   * 绝对差距护栏：保护 Top1 outlier 场景
+   * deltaThreshold = topScore - smartTopScoreDeltaAbs
+   * dynamicThreshold = max(floor, min(ratioThreshold, deltaThreshold))
+   * 推荐：0.20 ~ 0.35
+   */
+  smartTopScoreDeltaAbs: number;
+
+  /**
+   * 最低分数阈值（floor）：低于此分数视为垃圾
+   * 推荐：0.20 ~ 0.30（依赖 reranker 分数归一化稳定性）
+   */
+  smartMinScore: number;
+
+  /**
+   * Safe Harbor：前 minK 个只检查 floor，不检查 ratio/delta
+   * 推荐：2 或 3
+   */
+  smartMinK: number;
+
+  /**
+   * 硬上限，避免刷屏 / token 溢出
+   */
+  smartMaxK: number;
+
+  // === OCE 移植特性 ===
+
+  // --- Source Priority Ranking：源码优先 ---
+  /** 是否启用源码优先级衰减（文档/测试降权） */
+  sourcePriorityEnabled: boolean;
+  /** 文档类文件（docs/、*.md）分数系数 */
+  sourcePriorityDocFactor: number;
+  /** 测试类文件（test/spec、*.test.*）分数系数 */
+  sourcePriorityTestFactor: number;
+
+  // --- Exact Symbol Recall：精确符号召回 ---
+  /** 是否启用精确符号召回（symbol_occurrences 表） */
+  exactSymbolRecallEnabled: boolean;
+  /** 每个标识符最多召回多少条符号命中 */
+  exactSymbolTopKPerIdent: number;
+  /** 精确符号命中的基准分（进入 rerank 前） */
+  exactSymbolBoostScore: number;
+
+  // --- Path Index：文件名/路径查询 ---
+  /** 是否启用路径索引增强与回填 */
+  pathBoostEnabled: boolean;
+  /** 路径命中对同文件候选的分数加成权重 */
+  pathBoostWeight: number;
+  /** 路径索引最多返回文件数 */
+  pathIndexTopK: number;
+  /** 回填文件的基准分 */
+  pathBackfillBaseScore: number;
+  /** 每个回填文件最多补几个 chunk */
+  pathBackfillPerFile: number;
+  /** 最多回填多少个未命中文件 */
+  pathBackfillFiles: number;
+
+  // --- Coverage-first Selector：覆盖率优先选择 ---
+  /** 是否启用覆盖率优先选择（贪心两段填充） */
+  coverageEnabled: boolean;
+  /** 同文件 chunk 允许的重叠比例阈值（超限抑制） */
+  coverageOverlapThreshold: number;
+}
+
+/**
+ * 搜索范围选项。
+ *
+ * 第一阶段只落地 codeOnly，后续如需扩展再补更细粒度范围控制。
+ */
+export interface SearchScopeOptions {
+  codeOnly?: boolean;
+}
+
+// ===========================================
+// 查询通道类型
+// ===========================================
+
+/** 查询分通道 */
+export interface QueryChannels {
+  /** 向量召回查询（仅语义意图） */
+  vectorQuery: string;
+  /** 词法召回查询（术语优先） */
+  lexicalQuery: string;
+  /** Rerank 查询（完整查询） */
+  rerankQuery: string;
+}
+
+/** 上下文构建选项 */
+export interface BuildContextPackOptions {
+  /** 文件路径过滤器，返回 true 表示保留 */
+  filePathFilter?: (filePath: string) => boolean;
+  /** 语言过滤白名单，空数组或 undefined 表示不过滤 */
+  languageFilter?: string[];
+}
+
+// ===========================================
+// 搜索结果类型
+// ===========================================
+
+/** Chunk 来源类型 */
+export type ChunkSource = 'vector' | 'lexical' | 'both' | 'neighbor' | 'breadcrumb' | 'import';
+
+/** 带得分的 Chunk */
+export interface ScoredChunk {
+  /** 来源文件路径 */
+  filePath: string;
+  /** 文件内序号 */
+  chunkIndex: number;
+  /** 综合得分（rerank score 或衰减后的 score） */
+  score: number;
+  /** 来源类型 */
+  source: ChunkSource;
+  /** 原始 ChunkRecord */
+  record: ChunkRecord & { _distance: number };
+}
+
+/** 合并后的段 */
+export interface Segment {
+  /** 文件路径 */
+  filePath: string;
+  /** 原始起始偏移 */
+  rawStart: number;
+  /** 原始结束偏移 */
+  rawEnd: number;
+  /** 起始行号（1-indexed） */
+  startLine: number;
+  /** 结束行号（1-indexed） */
+  endLine: number;
+  /** 段内最高得分 */
+  score: number;
+  /** 面包屑（取段内第一个 chunk 的） */
+  breadcrumb: string;
+  /** 段文本（从原文件切片） */
+  text: string;
+}
+
+/** 上下文包 */
+export interface ContextPack {
+  /** 原始查询 */
+  query: string;
+  /** seed chunks（rerank 后的 topN） */
+  seeds: ScoredChunk[];
+  /** 扩展的 chunks */
+  expanded: ScoredChunk[];
+  /** 最终输出的段落（按文件聚合） */
+  files: Array<{
+    filePath: string;
+    segments: Segment[];
+  }>;
+  /** 调试信息 */
+  debug?: {
+    wVec: number;
+    wLex: number;
+    timingMs: Record<string, number>;
+  };
+}

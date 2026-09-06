@@ -1,0 +1,619 @@
+/**
+ * 统一配置模块
+ *
+ * 整合环境变量加载、API 配置、排除模式等所有配置项
+ *
+ * 加载策略：
+ * - 开发环境 (NODE_ENV !== "production"): 加载项目根目录的 .env 文件
+ * - 生产环境 (NODE_ENV === "production"): 加载 ACE 默认配置目录下的 .env 文件
+ *
+ * 此模块必须在应用启动时最先导入，以确保环境变量在其他模块加载前可用。
+ */
+
+import fs from 'node:fs';
+import path from 'node:path';
+import dotenv from 'dotenv';
+import { getDefaultEnvFilePath, getPreferredHomeEnvFilePath } from './utils/paths.js';
+
+// 环境变量加载
+
+const isDev = process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'dev';
+
+// MCP 模式检测：通过命令行参数判断（ace mcp）
+export const isMcpMode = process.argv[2] === 'mcp';
+
+export const DEFAULT_ENV_TEMPLATE = `# ACE 示例环境变量配置文件
+
+# Embedding API 配置（必需）
+# 推荐使用 KEYS（逗号分隔多 key），方便后期扩展限速轮转
+EMBEDDINGS_API_KEYS=your-api-key-here
+# 单 key 兼容写法（同时配置时 KEYS 优先）
+# EMBEDDINGS_API_KEY=your-api-key-here
+EMBEDDINGS_BASE_URL=https://api.siliconflow.cn/v1/embeddings
+EMBEDDINGS_MODEL=BAAI/bge-m3
+EMBEDDINGS_DIMENSIONS=1024
+
+# 默认配置档位
+# ACE_PROFILE: quality | balanced | performance
+# EMBEDDINGS_RATE_PROFILE: safe | balanced | fast
+ACE_PROFILE=balanced
+EMBEDDINGS_RATE_PROFILE=balanced
+
+# 高级覆盖项：通常不需要配置
+# EMBEDDINGS_MAX_CONCURRENCY=20
+# EMBEDDINGS_MAX_RPM=2000
+# EMBEDDINGS_MAX_TPM=500000
+# EMBEDDINGS_KEY_MAX_CONCURRENCIES=20,20
+# EMBEDDINGS_KEY_MAX_RPMS=2000,2000
+# EMBEDDINGS_KEY_MAX_TPMS=500000,500000
+
+# Reranker 配置（必需）
+# 推荐使用 KEYS（逗号分隔多 key），方便后期扩展限速轮转
+RERANK_API_KEYS=your-api-key-here
+# 单 key 兼容写法（同时配置时 KEYS 优先）
+# RERANK_API_KEY=your-api-key-here
+RERANK_BASE_URL=https://api.siliconflow.cn/v1/rerank
+RERANK_MODEL=BAAI/bge-reranker-v2-m3
+RERANK_TOP_N=20
+
+# 索引忽略模式（可选，逗号分隔，默认已包含常见忽略项）
+# IGNORE_PATTERNS=.venv,node_modules
+
+# 显式包含模式（可选，逗号分隔；仅用于放行未知扩展名）
+# INCLUDE_PATTERNS=**/*.prompt,**/*.cue
+`;
+
+function loadEnv(): void {
+  const preferredHomeEnvPath = getPreferredHomeEnvFilePath();
+  const fallbackEnvPath = getDefaultEnvFilePath();
+  // 可能的 .env 文件路径（按优先级排序）
+  // 注意：无论 dev/prod，都优先检查当前目录的 .env，
+  // 因为 Dashboard (httpServer) 的 updateEnvFile 会写入 cwd/.env。
+  const cwdEnvPath = path.join(process.cwd(), '.env');
+
+  // Test 模式下跳过当前目录的 .env，避免测试加载了开发环境真实的 key
+  const skipCwd = process.env.ACE_TEST === 'true' || process.env.NODE_ENV === 'test';
+
+  const candidates = isDev
+    ? [
+        ...(skipCwd ? [] : [cwdEnvPath]), // 1. 当前目录（开发用 + Dashboard 写入目标）
+        preferredHomeEnvPath, // 2. 用户配置目录（首选）
+        ...(skipCwd ? [] : [fallbackEnvPath]), // 3. 受限环境回退目录
+      ]
+    : [
+        ...(skipCwd ? [] : [cwdEnvPath]), // 1. 当前目录（Dashboard 写入目标）
+        preferredHomeEnvPath, // 2. 生产环境用户 HOME 配置
+        ...(skipCwd ? [] : [fallbackEnvPath]), // 3. 受限环境回退目录
+      ];
+
+  // 找到第一个存在的文件
+  const envPath = candidates.find((p) => fs.existsSync(p));
+
+  if (envPath) {
+    const result = dotenv.config({ path: envPath, quiet: true });
+    if (result.error) {
+      // 环境变量加载失败是致命错误，此时 logger 尚未初始化，只能用 console
+      console.error(`[config] 加载环境变量失败: ${result.error.message}`);
+      process.exit(1);
+    }
+  }
+  // 所有路径都不存在时静默跳过，允许无 .env 文件运行
+}
+
+// 立即执行加载
+loadEnv();
+
+// API 配置类型定义
+
+export interface EmbeddingConfig {
+  apiKey: string;
+  apiKeys?: string[];
+  rateProfile: EmbeddingRateProfile;
+  indexProfile: AceProfile;
+  chunking: ChunkingProfileConfig;
+  keyConfigs?: Array<{
+    apiKey: string;
+    maxConcurrency: number;
+    maxRpm: number;
+    maxTpm: number;
+  }>;
+  baseUrl: string;
+  model: string;
+  maxConcurrency: number;
+  /** 向量维度 */
+  dimensions: number;
+  /** RPM 上限（令牌桶主动限流，0 表示不使用） */
+  maxRpm: number;
+  /** TPM 上限（令牌桶主动限流，0 表示不使用） */
+  maxTpm: number;
+}
+
+export interface RerankerConfig {
+  apiKey: string;
+  apiKeys?: string[];
+  baseUrl: string;
+  model: string;
+  topN: number;
+}
+
+export type EmbeddingRateProfile = 'safe' | 'balanced' | 'fast';
+export type AceProfile = 'quality' | 'balanced' | 'performance';
+
+export interface ChunkingProfileConfig {
+  maxChunkSize: number;
+  minChunkSize: number;
+  chunkOverlap: number;
+}
+
+const RATE_PROFILE_DEFAULTS: Record<
+  EmbeddingRateProfile,
+  { maxConcurrency: number; maxRpm: number; maxTpm: number }
+> = {
+  safe: { maxConcurrency: 10, maxRpm: 600, maxTpm: 300000 },
+  balanced: { maxConcurrency: 20, maxRpm: 2000, maxTpm: 500000 },
+  fast: { maxConcurrency: 30, maxRpm: 2000, maxTpm: 1000000 },
+};
+
+const CHUNKING_PROFILE_DEFAULTS: Record<AceProfile, ChunkingProfileConfig> = {
+  quality: { maxChunkSize: 500, minChunkSize: 50, chunkOverlap: 40 },
+  balanced: { maxChunkSize: 700, minChunkSize: 100, chunkOverlap: 32 },
+  performance: { maxChunkSize: 900, minChunkSize: 120, chunkOverlap: 24 },
+};
+
+function resolveProfile<T extends string>(
+  value: string | undefined,
+  allowed: readonly T[],
+  fallback: T,
+): T {
+  const normalized = value?.trim().toLowerCase();
+  return allowed.includes(normalized as T) ? (normalized as T) : fallback;
+}
+
+// API 配置获取
+
+/**
+ * 环境变量检查结果
+ */
+export interface EnvCheckResult {
+  isValid: boolean;
+  missingVars: string[];
+}
+
+/**
+ * 默认的 API Key 占位符（未修改则视为未配置）
+ */
+const DEFAULT_API_KEY_PLACEHOLDER = 'your-api-key-here';
+
+/**
+ * 标准化单个 API Key：去除空白和占位符
+ */
+function normalizeApiKey(value: string | undefined): string | null {
+  if (!value) {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === DEFAULT_API_KEY_PLACEHOLDER) {
+    return null;
+  }
+
+  return trimmed;
+}
+
+/**
+ * 解析逗号分隔的 API Key 列表，并过滤空白与占位符
+ */
+function parseApiKeys(value: string | undefined): string[] {
+  if (!value) {
+    return [];
+  }
+
+  return value
+    .split(',')
+    .map((item) => normalizeApiKey(item))
+    .filter((item): item is string => item !== null);
+}
+
+/**
+ * 合并多 Key 与旧单 Key，保持顺序并去重
+ */
+function resolveApiKeys(singleKeyEnvName: string, multiKeyEnvName: string): string[] {
+  const parsedMultiKeys = parseApiKeys(process.env[multiKeyEnvName]);
+  const singleKey = normalizeApiKey(process.env[singleKeyEnvName]);
+
+  const merged = [...parsedMultiKeys];
+  if (singleKey) {
+    merged.push(singleKey);
+  }
+
+  return [...new Set(merged)];
+}
+
+function parsePerKeyNumberList(value: string | undefined): number[] {
+  if (!value) {
+    return [];
+  }
+
+  return value.split(',').map((item) => {
+    const parsed = parseInt(item.trim(), 10);
+    return Number.isNaN(parsed) ? 0 : parsed;
+  });
+}
+
+export function getAceProfile(): AceProfile {
+  return resolveProfile<AceProfile>(
+    process.env.ACE_PROFILE ?? process.env.CODE_RECALL_PROFILE,
+    ['quality', 'balanced', 'performance'],
+    'balanced',
+  );
+}
+
+export function getChunkingConfig(): ChunkingProfileConfig {
+  return CHUNKING_PROFILE_DEFAULTS[getAceProfile()];
+}
+
+/**
+ * 检查 Embedding 相关环境变量是否已配置（不抛出错误）
+ * @returns 检查结果，包含是否有效和缺失的变量列表
+ */
+export function checkEmbeddingEnv(): EnvCheckResult {
+  const missingVars: string[] = [];
+  const apiKeys = resolveApiKeys('EMBEDDINGS_API_KEY', 'EMBEDDINGS_API_KEYS');
+
+  if (apiKeys.length === 0) {
+    missingVars.push('EMBEDDINGS_API_KEY 或 EMBEDDINGS_API_KEYS');
+  }
+  if (!process.env.EMBEDDINGS_BASE_URL) {
+    missingVars.push('EMBEDDINGS_BASE_URL');
+  }
+  if (!process.env.EMBEDDINGS_MODEL) {
+    missingVars.push('EMBEDDINGS_MODEL');
+  }
+
+  return {
+    isValid: missingVars.length === 0,
+    missingVars,
+  };
+}
+
+/**
+ * 检查 Reranker 相关环境变量是否已配置（不抛出错误）
+ * @returns 检查结果，包含是否有效和缺失的变量列表
+ */
+export function checkRerankerEnv(): EnvCheckResult {
+  const missingVars: string[] = [];
+  const apiKeys = resolveApiKeys('RERANK_API_KEY', 'RERANK_API_KEYS');
+
+  if (apiKeys.length === 0) {
+    missingVars.push('RERANK_API_KEY 或 RERANK_API_KEYS');
+  }
+  if (!process.env.RERANK_BASE_URL) {
+    missingVars.push('RERANK_BASE_URL');
+  }
+  if (!process.env.RERANK_MODEL) {
+    missingVars.push('RERANK_MODEL');
+  }
+
+  return {
+    isValid: missingVars.length === 0,
+    missingVars,
+  };
+}
+
+/**
+ * 获取 Embedding 配置
+ * @throws 如果必需的配置项缺失
+ */
+export function getEmbeddingConfig(): EmbeddingConfig {
+  const apiKeys = resolveApiKeys('EMBEDDINGS_API_KEY', 'EMBEDDINGS_API_KEYS');
+  const baseUrl = process.env.EMBEDDINGS_BASE_URL;
+  const model = process.env.EMBEDDINGS_MODEL;
+  const rateProfile = resolveProfile<EmbeddingRateProfile>(
+    process.env.EMBEDDINGS_RATE_PROFILE,
+    ['safe', 'balanced', 'fast'],
+    'balanced',
+  );
+  const indexProfile = getAceProfile();
+  const rateDefaults = RATE_PROFILE_DEFAULTS[rateProfile];
+  const chunking = getChunkingConfig();
+  const maxConcurrency = parseInt(
+    process.env.EMBEDDINGS_MAX_CONCURRENCY || String(rateDefaults.maxConcurrency),
+    10,
+  );
+
+  if (apiKeys.length === 0) {
+    throw new Error('EMBEDDINGS_API_KEY 或 EMBEDDINGS_API_KEYS 环境变量未设置');
+  }
+  if (!baseUrl) {
+    throw new Error('EMBEDDINGS_BASE_URL 环境变量未设置');
+  }
+  if (!model) {
+    throw new Error('EMBEDDINGS_MODEL 环境变量未设置');
+  }
+
+  const dimensions = parseInt(process.env.EMBEDDINGS_DIMENSIONS || '1024', 10);
+  const maxRpm = parseInt(process.env.EMBEDDINGS_MAX_RPM || String(rateDefaults.maxRpm), 10);
+  const maxTpm = parseInt(process.env.EMBEDDINGS_MAX_TPM || String(rateDefaults.maxTpm), 10);
+  const keyMaxConcurrencies = parsePerKeyNumberList(process.env.EMBEDDINGS_KEY_MAX_CONCURRENCIES);
+  const keyMaxRpms = parsePerKeyNumberList(process.env.EMBEDDINGS_KEY_MAX_RPMS);
+  const keyMaxTpms = parsePerKeyNumberList(process.env.EMBEDDINGS_KEY_MAX_TPMS);
+
+  const normalizedMaxConcurrency = Number.isNaN(maxConcurrency) ? 4 : maxConcurrency;
+  const normalizedDimensions = Number.isNaN(dimensions) ? 1024 : dimensions;
+  const normalizedMaxRpm = Number.isNaN(maxRpm) ? 0 : maxRpm;
+  const normalizedMaxTpm = Number.isNaN(maxTpm) ? 0 : maxTpm;
+
+  const keyConfigs = apiKeys.map((apiKey, index) => ({
+    apiKey,
+    maxConcurrency:
+      keyMaxConcurrencies[index] > 0 ? keyMaxConcurrencies[index] : normalizedMaxConcurrency,
+    maxRpm: keyMaxRpms[index] > 0 ? keyMaxRpms[index] : normalizedMaxRpm,
+    maxTpm: keyMaxTpms[index] > 0 ? keyMaxTpms[index] : normalizedMaxTpm,
+  }));
+
+  return {
+    apiKey: apiKeys[0],
+    apiKeys,
+    rateProfile,
+    indexProfile,
+    chunking,
+    keyConfigs,
+    baseUrl,
+    model,
+    maxConcurrency: normalizedMaxConcurrency,
+    dimensions: normalizedDimensions,
+    maxRpm: normalizedMaxRpm,
+    maxTpm: normalizedMaxTpm,
+  };
+}
+
+/**
+ * 获取 Reranker 配置
+ * @throws 如果必需的配置项缺失
+ */
+export function getRerankerConfig(): RerankerConfig {
+  const apiKeys = resolveApiKeys('RERANK_API_KEY', 'RERANK_API_KEYS');
+  const baseUrl = process.env.RERANK_BASE_URL;
+  const model = process.env.RERANK_MODEL;
+  const topN = parseInt(process.env.RERANK_TOP_N || '10', 10);
+
+  if (apiKeys.length === 0) {
+    throw new Error('RERANK_API_KEY 或 RERANK_API_KEYS 环境变量未设置');
+  }
+  if (!baseUrl) {
+    throw new Error('RERANK_BASE_URL 环境变量未设置');
+  }
+  if (!model) {
+    throw new Error('RERANK_MODEL 环境变量未设置');
+  }
+
+  return {
+    apiKey: apiKeys[0],
+    apiKeys,
+    baseUrl,
+    model,
+    topN: Number.isNaN(topN) ? 10 : topN,
+  };
+}
+
+// 排除模式配置
+
+/**
+ * 默认排除列表
+ *
+ * 策略：
+ * 1. 绝对屏蔽高 Token 消耗且低语义价值的文件 (Lock files, Maps, Assets)
+ * 2. 绝对屏蔽构建产物和依赖 (Dist, node_modules)
+ * 3. 智能保留测试逻辑，但剔除测试数据
+ */
+const DEFAULT_EXCLUDE_PATTERNS = [
+  // --- 1. 依赖与环境 (绝对黑名单) ---
+  'node_modules',
+  'bower_components',
+  '.venv',
+  'venv', // Python 虚拟环境
+  'env', // 常见本地虚拟环境目录
+  '.env', // 根环境变量文件
+  '.env.*', // 环境变量文件 (.env.local, .env.production 等)
+
+  // --- 2. 锁文件 (Token 杀手，且语义密度极低) ---
+  'package-lock.json',
+  'yarn.lock',
+  'pnpm-lock.yaml',
+  'bun.lockb',
+  'Pipfile.lock',
+  'poetry.lock',
+  'Gemfile.lock',
+  'composer.lock',
+  'Cargo.lock',
+
+  // --- 3. 版本控制与 IDE ---
+  '.git',
+  '.svn',
+  '.hg',
+  '.idea',
+  '.vscode',
+  '.vs',
+  '*.suo',
+  '*.user',
+  '.classpath',
+  '.project',
+  '.settings',
+
+  // --- 4. 构建产物与缓存 ---
+  // 通用构建输出
+  'dist',
+  'build',
+  'out',
+  'target',
+  'obj',
+  // 编译产物
+  '*.pyc',
+  '*.pyo',
+  '*.pyd',
+  '*.so',
+  '*.dll',
+  '*.exe',
+  '*.bin',
+  '*.wasm',
+  // 现代前端框架产物
+  '.next',
+  '.nuxt',
+  '.output',
+  '.svelte-kit',
+  // Bundler 缓存
+  '.turbo',
+  '.parcel-cache',
+  '.webpack',
+  '.esbuild',
+  '.rollup.cache',
+  // 测试覆盖率
+  'coverage',
+  '.nyc_output',
+  // Python 缓存
+  '__pycache__',
+  '.pytest_cache',
+  '.mypy_cache',
+  '.ruff_cache',
+  '.tox',
+  '.eggs',
+  '*.egg-info',
+  '.gradle',
+  '.terraform',
+  '.serverless',
+  '.vercel',
+  '.netlify',
+  '.firebase',
+
+  // --- 5. 纯噪音文件 (无文本语义) ---
+  // 压缩文件与 SourceMap
+  '*.min.js',
+  '*.min.css',
+  '*.map',
+  // 图片与多媒体
+  '*.svg',
+  '*.png',
+  '*.jpg',
+  '*.jpeg',
+  '*.gif',
+  '*.ico',
+  '*.webp',
+  '*.bmp',
+  '*.pdf',
+  '*.mp3',
+  '*.mp4',
+  '*.wav',
+  '*.webm',
+  '*.ogg',
+  '*.flac',
+  // 字体文件
+  '*.woff',
+  '*.woff2',
+  '*.ttf',
+  '*.eot',
+  '*.otf',
+  // 压缩包
+  '*.zip',
+  '*.tar',
+  '*.gz',
+  '*.rar',
+  '*.7z',
+  // 系统垃圾
+  '.DS_Store',
+  'Thumbs.db',
+
+  // --- 6. 测试噪音 (保留 *.test.ts，但剔除这些) ---
+  // Jest 快照
+  '__snapshots__',
+  '*.snap',
+  // 测试夹具与数据
+  'test/fixtures',
+  'tests/fixtures',
+  '__fixtures__',
+  'test/data',
+  'tests/data',
+  'testdata',
+  'test-data',
+  'testutils',
+  // Mock 数据
+  'mock',
+  'mocks',
+  '__mocks__',
+  'stub',
+  'stubs',
+
+  // --- 7. 第三方与生成文件 ---
+  // 第三方依赖目录
+  'vendor',
+  'vendors',
+  'third_party',
+  'thirdparty',
+  '3rdparty',
+  'external',
+  'externals',
+  // 生成文件
+  'generated',
+  'gen',
+  'auto-generated',
+  '*.generated.ts',
+  '*.generated.js',
+  '*.pb.go',
+  '*.pb.ts', // protobuf 生成
+
+  // --- 8. 日志与临时文件 ---
+  '*.log',
+  '.cache',
+  '.tmp',
+  'tmp',
+];
+
+/**
+ * 默认包含模式
+ *
+ * 默认值为空，避免把未知扩展名文件全部纳入索引。
+ */
+const DEFAULT_INCLUDE_PATTERNS: string[] = [];
+
+/**
+ * 解析逗号分隔模式字符串
+ * @param raw 原始模式字符串
+ * @returns 解析后的模式数组
+ */
+function parseCommaSeparatedPatterns(raw: string | undefined): string[] {
+  if (!raw) {
+    return [];
+  }
+
+  return raw
+    .split(',')
+    .map((pattern) => pattern.trim())
+    .filter(Boolean);
+}
+
+/**
+ * 获取合并后的排除模式列表
+ * @returns 排除模式数组
+ */
+export function getExcludePatterns(): string[] {
+  const envPatterns = parseCommaSeparatedPatterns(process.env.IGNORE_PATTERNS);
+  const patterns = [...DEFAULT_EXCLUDE_PATTERNS];
+
+  patterns.push(...envPatterns);
+
+  return patterns;
+}
+
+/**
+ * 获取合并后的显式包含模式列表
+ * @returns 包含模式数组
+ */
+export function getIncludePatterns(): string[] {
+  const envPatterns = parseCommaSeparatedPatterns(process.env.INCLUDE_PATTERNS);
+  const patterns = [...DEFAULT_INCLUDE_PATTERNS];
+
+  patterns.push(...envPatterns);
+
+  return patterns;
+}
+
+export { isDev };

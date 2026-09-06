@@ -1,0 +1,8 @@
+{"id":"oce-symbol-coverage-selector","query":"where is the CoverageSelector defined","relevant":{"src/oce/domain/services/selector/coverage_selector.py":1}}
+{"id":"oce-symbol-retrieval-pipeline","query":"RetrievalPipeline class definition","relevant":{"src/oce/domain/services/retrieval.py":1}}
+{"id":"oce-path-cli","query":"main entry point file oce cli","relevant":{"src/oce/cli.py":1}}
+{"id":"oce-symbol-source-priority","query":"source_priority_factor implementation","relevant":{"src/oce/domain/services/retrieval.py":1}}
+{"id":"oce-path-retrieval","query":"where is the retrieval service file","relevant":{"src/oce/domain/services/retrieval.py":1}}
+{"id":"oce-symbol-embedder","query":"Embedder class in services","relevant":{"src/oce/domain/services/embedder.py":1}}
+{"id":"oce-path-path-search","query":"path search index implementation","relevant":{"src/oce/domain/services/path_search.py":1}}
+{"id":"oce-content-format-context","query":"how is search output formatted for context","relevant":{"src/oce/domain/services/formatter.py":1}}

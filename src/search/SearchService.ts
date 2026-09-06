@@ -1,0 +1,1097 @@
+/**
+ * SearchService - 搜索服务
+ *
+ * Phase 0: 向量召回 + Rerank
+ * Phase 1: 添加词法召回 + RRF 融合
+ * Phase 2: 上下文扩展（邻居/breadcrumb/import）
+ *
+ * - buildContextPack(): 用于问答/生成的上下文包
+ */
+
+import type Database from 'better-sqlite3';
+import { getRerankerClient } from '../api/reranker.js';
+import { getEmbeddingConfig } from '../config.js';
+import { initDb } from '../db/index.js';
+import { closeIndexer, getIndexer, type Indexer } from '../indexer/index.js';
+import { applyGeneratedFilePenalty } from '../scanner/generatedFiles.js';
+import { getLanguage } from '../scanner/language.js';
+import { isDebugEnabled, logger } from '../utils/logger.js';
+import type { ChunkRecord, SearchResult as VectorSearchResult } from '../vectorStore/index.js';
+import { closeVectorStore, getVectorStore, type VectorStore } from '../vectorStore/index.js';
+import { ContextPacker } from './ContextPacker.js';
+import { DEFAULT_CONFIG } from './config.js';
+import { applyFilters, enrichChunkMetadata } from './filterApplier.js';
+import {
+  isChunksFtsInitialized,
+  isFtsInitialized,
+  searchChunksFts,
+  searchFilesFts,
+  segmentQuery,
+} from './fts.js';
+import { getGraphExpander } from './GraphExpander.js';
+import { detectPathQuery, mergePathBoost, searchPathsFts } from './pathIndex.js';
+import { parseQuery } from './queryParser.js';
+import { applySourcePriority } from './sourcePriority.js';
+import {
+  extractSymbolIdentifiers,
+  isSymbolTableInitialized,
+  type SymbolHit,
+  searchSymbolOccurrences,
+} from './symbols.js';
+import type {
+  BuildContextPackOptions,
+  ContextPack,
+  QueryChannels,
+  ScoredChunk,
+  SearchConfig,
+} from './types.js';
+
+/**
+ * 将 languageFilter 转换为 LanceDB WHERE 子句
+ *
+ * @param languages 语言白名单数组
+ * @returns SQL WHERE 子句字符串，空数组或 undefined 返回 undefined
+ */
+export function buildLanguageWhereClause(languages?: string[]): string | undefined {
+  if (!languages || languages.length === 0) {
+    return undefined;
+  }
+
+  const escapeSqlString = (value: string): string => value.replace(/'/g, "''");
+
+  if (languages.length === 1) {
+    // 单语言: language = 'typescript'
+    return `language = '${escapeSqlString(languages[0])}'`;
+  }
+
+  // 多语言: language IN ('typescript', 'javascript', 'python')
+  const escapedLangs = languages.map((lang) => `'${escapeSqlString(lang)}'`).join(', ');
+  return `language IN (${escapedLangs})`;
+}
+
+/**
+ * 在融合后、Rerank 前按文件施加候选上限
+ *
+ * 输入应保持降序；函数会按原顺序稳定筛选，确保高分 chunk 优先保留。
+ */
+export function applyPreRerankPerFileCap(
+  candidates: ScoredChunk[],
+  perFileCap: number,
+): ScoredChunk[] {
+  if (perFileCap <= 0 || !Number.isFinite(perFileCap)) {
+    return candidates;
+  }
+
+  const fileCounts = new Map<string, number>();
+  const capped: ScoredChunk[] = [];
+
+  for (const candidate of candidates) {
+    const current = fileCounts.get(candidate.filePath) ?? 0;
+    if (current >= perFileCap) {
+      continue;
+    }
+    fileCounts.set(candidate.filePath, current + 1);
+    capped.push(candidate);
+  }
+
+  return capped;
+}
+
+// ===========================================
+// 性能优化：Token 边界 RegExp 缓存
+// ===========================================
+
+/** 缓存预编译的 token 边界正则表达式 */
+const tokenBoundaryRegexCache = new Map<string, RegExp>();
+const TOKEN_BOUNDARY_REGEX_CACHE_MAX = 1000;
+
+/**
+ * 获取或创建 token 边界正则表达式（带缓存）
+ *
+ * 避免每次 scoreChunkTokenOverlap 调用都创建 N 个 RegExp 对象
+ */
+function getTokenBoundaryRegex(token: string): RegExp {
+  let regex = tokenBoundaryRegexCache.get(token);
+  if (!regex) {
+    // MCP 长驻进程会积累大量查询词，这里用简单 FIFO 上限避免缓存无限增长。
+    if (tokenBoundaryRegexCache.size >= TOKEN_BOUNDARY_REGEX_CACHE_MAX) {
+      const oldestKey = tokenBoundaryRegexCache.keys().next().value;
+      if (oldestKey !== undefined) {
+        tokenBoundaryRegexCache.delete(oldestKey);
+      }
+    }
+    const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    regex = new RegExp(`\\b${escaped}\\b`);
+    tokenBoundaryRegexCache.set(token, regex);
+  }
+  return regex;
+}
+
+export function getTokenBoundaryRegexForTest(token: string): RegExp {
+  return getTokenBoundaryRegex(token);
+}
+
+export function __getTokenBoundaryRegexCacheSizeForTest(): number {
+  return tokenBoundaryRegexCache.size;
+}
+
+export function __resetTokenBoundaryRegexCacheForTest(): void {
+  tokenBoundaryRegexCache.clear();
+}
+
+export class SearchService {
+  private projectId: string;
+  private indexer: Indexer | null = null;
+  private vectorStore: VectorStore | null = null;
+  private db: Database.Database | null = null;
+  private config: SearchConfig;
+
+  constructor(projectId: string, _projectPath: string, config?: Partial<SearchConfig>) {
+    this.projectId = projectId;
+    this.config = { ...DEFAULT_CONFIG, ...config };
+  }
+
+  async init(): Promise<void> {
+    const embeddingConfig = getEmbeddingConfig();
+    this.indexer = await getIndexer(this.projectId, embeddingConfig.dimensions);
+    this.vectorStore = await getVectorStore(this.projectId, embeddingConfig.dimensions);
+    this.db = initDb(this.projectId);
+  }
+
+  /**
+   * 释放搜索请求持有的本地资源。
+   *
+   * SearchService 会为 CLI/MCP 查询打开 SQLite 与向量库连接；长时间运行的 MCP
+   * 进程必须在一次查询结束后显式释放，避免按项目累积连接与工厂缓存。
+   */
+  async close(): Promise<void> {
+    if (this.db) {
+      this.db.close();
+      this.db = null;
+    }
+
+    if (this.vectorStore) {
+      await this.vectorStore.close();
+      this.vectorStore = null;
+    }
+
+    this.indexer = null;
+    closeIndexer(this.projectId);
+    await closeVectorStore(this.projectId);
+    const { closeGraphExpander } = await import('./GraphExpander.js');
+    closeGraphExpander(this.projectId);
+  }
+
+  // 公开接口
+
+  /**
+   * 构建上下文包（用于问答/生成）
+   */
+  async buildContextPack(
+    query: string,
+    channels?: Partial<QueryChannels>,
+    options?: BuildContextPackOptions,
+  ): Promise<ContextPack> {
+    // 0. Parse query for field-qualified filters
+    const parsedQuery = parseQuery(query);
+    const naturalQuery = parsedQuery.naturalText || query;
+
+    if (Object.keys(parsedQuery.filters).length > 0) {
+      logger.debug({ filters: parsedQuery.filters }, 'Applying field-qualified filters');
+    }
+
+    const timingMs: Record<string, number> = {};
+    let t0 = Date.now();
+    const filePathFilter = options?.filePathFilter;
+    const languageWhereClause = buildLanguageWhereClause(options?.languageFilter);
+
+    // Use natural text (without filters) for vector/lexical/rerank
+    const vectorQuery = channels?.vectorQuery ?? naturalQuery;
+    const lexicalQuery = channels?.lexicalQuery ?? naturalQuery;
+    const rerankQuery = channels?.rerankQuery ?? naturalQuery;
+
+    // 1. 混合召回
+    const candidates = await this.hybridRetrieve(
+      vectorQuery,
+      lexicalQuery,
+      languageWhereClause,
+      options?.languageFilter,
+    );
+
+    // Apply generated-file score penalty
+    const penalizedCandidates = candidates.map((candidate) => ({
+      ...candidate,
+      score: applyGeneratedFilePenalty(candidate.filePath, candidate.score),
+    }));
+
+    // （OCE 移植）Exact Symbol Recall：精确符号召回，并入候选后再走统一过滤/排序
+    const recallMerged = await this.mergeExactSymbolHits(
+      penalizedCandidates,
+      naturalQuery,
+      options?.languageFilter,
+    );
+
+    // Apply field-qualified filters first
+    let filteredCandidates = recallMerged;
+    if (Object.keys(parsedQuery.filters).length > 0) {
+      const enriched = filteredCandidates.map((chunk) => enrichChunkMetadata(chunk));
+      filteredCandidates = applyFilters(enriched, parsedQuery.filters);
+      logger.debug(
+        { before: candidates.length, after: filteredCandidates.length },
+        'Field filters applied',
+      );
+    }
+
+    // Then apply file path filter if provided
+    if (filePathFilter) {
+      filteredCandidates = filteredCandidates.filter((chunk) => filePathFilter(chunk.filePath));
+    }
+
+    timingMs.retrieve = Date.now() - t0;
+
+    // 2. 取 topM
+    t0 = Date.now();
+    const topM = filteredCandidates
+      .sort((a, b) => b.score - a.score)
+      .slice(0, this.config.fusedTopM);
+    const cappedTopM = applyPreRerankPerFileCap(topM, this.config.preRerankPerFileCap);
+
+    // （OCE 移植）Path Index：文件名/路径查询增强与回填。
+    // 先对已召回的同文件候选加分，再为未命中文件回填首段，随后交给 rerank 重排。
+    let rerankInput = cappedTopM;
+    if (this.config.pathBoostEnabled && this.db && this.vectorStore) {
+      try {
+        if (detectPathQuery(naturalQuery)) {
+          const pathHits = searchPathsFts(this.db, naturalQuery, this.config.pathIndexTopK);
+          rerankInput = await mergePathBoost(cappedTopM, pathHits, this.vectorStore, {
+            weight: this.config.pathBoostWeight,
+            backfillBaseScore: this.config.pathBackfillBaseScore,
+            backfillPerFile: this.config.pathBackfillPerFile,
+            backfillFiles: this.config.pathBackfillFiles,
+          });
+        }
+      } catch (err) {
+        logger.debug({ error: (err as Error).message }, 'Path Boost 失败，忽略');
+      }
+    }
+
+    // 3. Rerank → seeds（失败时降级到融合结果）
+    let reranked: ScoredChunk[];
+    try {
+      reranked = await this.rerank(rerankQuery, rerankInput);
+    } catch (error) {
+      logger.warn(
+        {
+          error: error instanceof Error ? error.message : String(error),
+        },
+        'Rerank 不可用，降级到 RRF 融合结果',
+      );
+      reranked = rerankInput;
+    }
+    timingMs.rerank = Date.now() - t0;
+
+    // （OCE 移植）Source Priority Ranking：按文件信息价值对得分加括号重排，源码优先
+    reranked = applySourcePriority(reranked, {
+      enabled: this.config.sourcePriorityEnabled,
+      docFactor: this.config.sourcePriorityDocFactor,
+      testFactor: this.config.sourcePriorityTestFactor,
+    });
+
+    // 4. Smart TopK Cutoff
+    t0 = Date.now();
+    const seeds = this.applySmartCutoff(reranked);
+    timingMs.smartCutoff = Date.now() - t0;
+
+    // 5. 扩展（Phase 2 实现）
+    t0 = Date.now();
+    const queryTokens = this.extractQueryTokens(query);
+    const expanded = await this.expand(seeds, queryTokens);
+    let filteredExpanded = filePathFilter
+      ? expanded.filter((chunk) => filePathFilter(chunk.filePath))
+      : expanded;
+
+    const languageFilter = options?.languageFilter;
+    if (languageFilter && languageFilter.length > 0) {
+      const langSet = new Set(languageFilter);
+      filteredExpanded = filteredExpanded.filter((chunk) =>
+        langSet.has(getLanguage(chunk.filePath)),
+      );
+    }
+    timingMs.expand = Date.now() - t0;
+
+    // 6. 打包
+    t0 = Date.now();
+    const packer = new ContextPacker(this.projectId, this.config);
+    const files = await packer.pack([...seeds, ...filteredExpanded]);
+    timingMs.pack = Date.now() - t0;
+
+    return {
+      query,
+      seeds,
+      expanded: filteredExpanded,
+      files,
+      debug: {
+        wVec: this.config.wVec,
+        wLex: this.config.wLex,
+        timingMs,
+      },
+    };
+  }
+
+  // 召回方法
+
+  /**
+   * 混合召回：向量 + 词法
+   */
+  private async hybridRetrieve(
+    vectorQuery: string,
+    lexicalQuery: string,
+    languageWhereClause?: string,
+    languageFilter?: string[],
+  ): Promise<ScoredChunk[]> {
+    // 并行执行向量和词法召回
+    const [vectorResults, lexicalResults] = await Promise.all([
+      this.vectorRetrieve(vectorQuery, languageWhereClause),
+      this.lexicalRetrieve(lexicalQuery, languageFilter),
+    ]);
+
+    logger.debug(
+      {
+        vectorCount: vectorResults.length,
+        lexicalCount: lexicalResults.length,
+      },
+      '混合召回完成',
+    );
+
+    // 如果词法召回没有结果，直接返回向量结果
+    if (lexicalResults.length === 0) {
+      return vectorResults;
+    }
+
+    // RRF 融合
+    return this.fuse(vectorResults, lexicalResults);
+  }
+
+  /**
+   * （OCE 移植）Exact Symbol Recall：精确符号召回
+   *
+   * 从 query 提取代码标识符，在 symbol_occurrences 表做精确匹配，
+   * 将命中 chunk 以高基准分并入候选，使"精确符号"稳定进入 rerank 窗口。
+   * 任何一步失败/缺失都原样返回，不影响主召回链路。
+   */
+  private async mergeExactSymbolHits(
+    candidates: ScoredChunk[],
+    query: string,
+    languageFilter?: string[],
+  ): Promise<ScoredChunk[]> {
+    if (!this.config.exactSymbolRecallEnabled) return candidates;
+    if (!this.db || !this.vectorStore) return candidates;
+    if (!isSymbolTableInitialized(this.db)) return candidates;
+
+    const identifiers = extractSymbolIdentifiers(query);
+    if (identifiers.length === 0) return candidates;
+
+    let rows: SymbolHit[];
+    try {
+      rows = searchSymbolOccurrences(this.db, identifiers, this.config.exactSymbolTopKPerIdent);
+    } catch (err) {
+      logger.debug({ error: (err as Error).message }, '符号表查询失败，跳过精确召回');
+      return candidates;
+    }
+
+    if (languageFilter && languageFilter.length > 0) {
+      const langSet = new Set(languageFilter);
+      rows = rows.filter((r) => langSet.has(r.language));
+    }
+    if (rows.length === 0) return candidates;
+
+    // 按文件批量获取 chunks，映射 chunk_id → ChunkRecord
+    const filePaths = Array.from(new Set(rows.map((r) => r.filePath)));
+    const chunksMap = await this.vectorStore.getFilesChunks(filePaths);
+    if (!chunksMap) return candidates;
+
+    const recordByChunk = new Map<string, ChunkRecord>();
+    for (const records of chunksMap.values()) {
+      for (const rec of records) recordByChunk.set(rec.chunk_id, rec);
+    }
+
+    const existingKeys = new Set(candidates.map((c) => this.chunkKey(c)));
+    const exactHits: ScoredChunk[] = [];
+
+    for (const row of rows) {
+      const rec = recordByChunk.get(row.chunkId);
+      if (!rec) continue;
+      const key = `${rec.file_path}#${rec.chunk_index}`;
+      if (existingKeys.has(key)) continue;
+      existingKeys.add(key);
+      exactHits.push({
+        filePath: rec.file_path,
+        chunkIndex: rec.chunk_index,
+        score: this.config.exactSymbolBoostScore,
+        source: 'lexical',
+        record: { ...rec, _distance: 0 },
+      });
+    }
+
+    if (exactHits.length === 0) return candidates;
+
+    logger.debug(
+      {
+        identifiers: identifiers.length,
+        symbolRows: rows.length,
+        addedHits: exactHits.length,
+      },
+      'Exact Symbol Recall 已并入候选',
+    );
+
+    return [...candidates, ...exactHits];
+  }
+
+  /**
+   * 向量召回
+   */
+  private async vectorRetrieve(query: string, filter?: string): Promise<ScoredChunk[]> {
+    if (!this.indexer) throw new Error('SearchService not initialized');
+
+    const results = await this.indexer.textSearch(query, this.config.vectorTopK, filter);
+    if (!results) return [];
+
+    // 按距离排序并转换
+    return results
+      .sort((a, b) => a._distance - b._distance)
+      .slice(0, this.config.vectorTopM)
+      .map((r: VectorSearchResult, rank: number) => ({
+        filePath: r.file_path,
+        chunkIndex: r.chunk_index,
+        score: 1 / (1 + r._distance), // 转为相似度（用于调试）
+        source: 'vector' as const,
+        record: r,
+        _rank: rank, // 用于 RRF
+      }));
+  }
+
+  /**
+   * 词法召回（FTS）
+   *
+   * 优先使用 chunk 级 FTS（更精准）
+   * 如果 chunks_fts 不可用，降级到文件级 FTS + overlap 下钻
+   */
+  private async lexicalRetrieve(query: string, languageFilter?: string[]): Promise<ScoredChunk[]> {
+    if (!this.db || !this.vectorStore) return [];
+
+    // 优先尝试 chunk 级 FTS（更精准）
+    if (isChunksFtsInitialized(this.db)) {
+      return this.lexicalRetrieveFromChunksFts(query, languageFilter);
+    }
+
+    // 降级到文件级 FTS + overlap 下钻
+    if (isFtsInitialized(this.db)) {
+      return this.lexicalRetrieveFromFilesFts(query, languageFilter);
+    }
+
+    logger.debug('FTS 未初始化，跳过词法召回');
+    return [];
+  }
+
+  /**
+   * 从 chunks_fts 直接搜索（最优方案）
+   */
+  private async lexicalRetrieveFromChunksFts(
+    query: string,
+    languageFilter?: string[],
+  ): Promise<ScoredChunk[]> {
+    const chunkResults = searchChunksFts(
+      this.db as Database.Database,
+      query,
+      this.config.lexTotalChunks,
+      languageFilter,
+    );
+
+    if (chunkResults.length === 0) {
+      logger.debug('Chunk FTS 无命中');
+      return [];
+    }
+
+    // 将 FTS 结果转换为 ScoredChunk，需要从 VectorStore 获取完整的 ChunkRecord
+    const allChunks: ScoredChunk[] = [];
+
+    // 按文件分组获取 chunks
+    const fileChunksMap = new Map<string, Map<number, number>>(); // filePath -> (chunkIndex -> score)
+    for (const result of chunkResults) {
+      if (!fileChunksMap.has(result.filePath)) {
+        fileChunksMap.set(result.filePath, new Map());
+      }
+      fileChunksMap.get(result.filePath)?.set(result.chunkIndex, result.score);
+    }
+
+    // 从 VectorStore 批量获取完整的 chunk 信息（性能优化：N 次查询 → 1 次）
+    const allFilePaths = Array.from(fileChunksMap.keys());
+    const chunksMap = await this.vectorStore?.getFilesChunks(allFilePaths);
+    if (!chunksMap) return allChunks;
+
+    for (const [filePath, chunkScores] of fileChunksMap) {
+      const chunks = chunksMap.get(filePath) ?? [];
+
+      for (const chunk of chunks) {
+        const score = chunkScores.get(chunk.chunk_index);
+        if (score !== undefined) {
+          allChunks.push({
+            filePath: chunk.file_path,
+            chunkIndex: chunk.chunk_index,
+            score,
+            source: 'lexical' as const,
+            record: { ...chunk, _distance: 0 },
+          });
+        }
+      }
+    }
+
+    logger.debug(
+      {
+        totalChunks: allChunks.length,
+        filesWithChunks: fileChunksMap.size,
+      },
+      'Chunk FTS 召回完成',
+    );
+
+    // 按 score 排序并分配 rank
+    return allChunks
+      .sort((a, b) => b.score - a.score)
+      .map((chunk, rank) => ({ ...chunk, _rank: rank }));
+  }
+
+  /**
+   * 从 files_fts 搜索 + overlap 下钻（降级方案）
+   */
+  private async lexicalRetrieveFromFilesFts(
+    query: string,
+    languageFilter?: string[],
+  ): Promise<ScoredChunk[]> {
+    // 1. FTS 搜索文件
+    const fileResults = searchFilesFts(
+      this.db as Database.Database,
+      query,
+      this.config.ftsTopKFiles,
+      languageFilter,
+    );
+    if (fileResults.length === 0) {
+      logger.debug('FTS 无命中文件');
+      return [];
+    }
+
+    // 2. 提取查询 tokens（用于 chunk 级别打分）
+    const queryTokens = this.extractQueryTokens(query);
+    logger.debug(
+      {
+        fileCount: fileResults.length,
+        queryTokens: Array.from(queryTokens).slice(0, 10),
+      },
+      'FTS 召回开始 chunk 选择',
+    );
+
+    // 3. 从 VectorStore 获取每个文件的 chunks，使用 token overlap 打分
+    const allChunks: ScoredChunk[] = [];
+    let totalChunks = 0;
+    let skippedFiles = 0;
+    const filePaths = fileResults.map((item) => item.path);
+    const allFileChunksMap = await this.vectorStore?.getFilesChunks(filePaths);
+    if (!allFileChunksMap) {
+      return [];
+    }
+
+    for (const { path: filePath, score: fileScore } of fileResults) {
+      if (totalChunks >= this.config.lexTotalChunks) break;
+      const chunks = allFileChunksMap.get(filePath);
+      if (!chunks || chunks.length === 0) continue;
+
+      // 对每个 chunk 计算 token overlap 得分
+      const scoredChunks = chunks.map((chunk) => ({
+        chunk,
+        overlapScore: this.scoreChunkTokenOverlap(chunk, queryTokens),
+      }));
+
+      // 阈值过滤：如果文件内所有 chunk 的 maxOverlap == 0，跳过该文件
+      // 避免引入无关 chunk 噪声
+      const maxOverlap = Math.max(...scoredChunks.map((c) => c.overlapScore));
+      if (maxOverlap === 0) {
+        skippedFiles++;
+        continue;
+      }
+
+      // 按 overlap 得分降序排序，取 topK（只取 overlapScore > 0 的）
+      const topChunks = scoredChunks
+        .filter((c) => c.overlapScore > 0)
+        .sort((a, b) => b.overlapScore - a.overlapScore)
+        .slice(0, this.config.lexChunksPerFile);
+
+      for (const { chunk, overlapScore } of topChunks) {
+        if (totalChunks >= this.config.lexTotalChunks) break;
+
+        // 综合得分 = 文件级 BM25 分数 * (1 + chunk 级 overlap 加成)
+        const combinedScore = fileScore * (1 + overlapScore * 0.5);
+
+        allChunks.push({
+          filePath: chunk.file_path,
+          chunkIndex: chunk.chunk_index,
+          score: combinedScore,
+          source: 'lexical' as const,
+          record: { ...chunk, _distance: 0 },
+        });
+        totalChunks++;
+      }
+    }
+
+    if (skippedFiles > 0) {
+      logger.debug({ skippedFiles }, 'FTS 跳过 overlap=0 的文件');
+    }
+
+    logger.debug(
+      {
+        totalChunks: allChunks.length,
+        filesWithChunks: new Set(allChunks.map((c) => c.filePath)).size,
+      },
+      'FTS chunk 选择完成',
+    );
+
+    // 按 score 排序并分配 rank
+    return allChunks
+      .sort((a, b) => b.score - a.score)
+      .map((chunk, rank) => ({ ...chunk, _rank: rank }));
+  }
+
+  /**
+   * 提取查询中的 tokens
+   *
+   * 直接复用 fts.ts 中的 segmentQuery，确保召回和评分逻辑一致
+   */
+  private extractQueryTokens(query: string): Set<string> {
+    const tokens = segmentQuery(query);
+    return new Set(tokens);
+  }
+
+  /**
+   * 计算 chunk 与查询的 token overlap 得分
+   *
+   * 匹配策略：
+   * - breadcrumb 和 display_code 都参与匹配
+   * - 精确匹配得 1 分，子串匹配得 0.5 分
+   */
+  private scoreChunkTokenOverlap(
+    chunk: { breadcrumb: string; display_code: string },
+    queryTokens: Set<string>,
+  ): number {
+    const text = `${chunk.breadcrumb} ${chunk.display_code}`.toLowerCase();
+    let score = 0;
+
+    for (const token of queryTokens) {
+      // 性能优化：先用 includes 快速判断，再用预编译的 RegExp 判断边界
+      if (text.includes(token)) {
+        // 精确匹配（作为完整单词）得更高分
+        const regex = getTokenBoundaryRegex(token);
+        if (regex.test(text)) {
+          score += 1;
+        } else {
+          score += 0.5; // 子串匹配
+        }
+      }
+    }
+
+    return score;
+  }
+
+  // =========================================
+  // 融合方法
+  // =========================================
+
+  /**
+   * RRF (Reciprocal Rank Fusion) 融合
+   *
+   * 公式: score = Σ w_i / (k + rank_i)
+   * 其中 k 是平滑常数，rank 从 0 开始
+   */
+  private fuse(
+    vectorResults: (ScoredChunk & { _rank?: number })[],
+    lexicalResults: (ScoredChunk & { _rank?: number })[],
+  ): ScoredChunk[] {
+    const { rrfK0, wVec, wLex } = this.config;
+
+    // 构建 chunk_id -> 融合分数 的映射
+    const fusedScores = new Map<
+      string,
+      {
+        score: number;
+        chunk: ScoredChunk;
+        sources: Set<string>;
+      }
+    >();
+
+    // 辅助函数：生成唯一键
+    const getKey = (chunk: ScoredChunk) => `${chunk.filePath}#${chunk.chunkIndex}`;
+
+    // 处理向量结果
+    for (const result of vectorResults) {
+      const key = getKey(result);
+      const rank = result._rank ?? 0;
+      const rrfScore = wVec / (rrfK0 + rank);
+
+      const existing = fusedScores.get(key);
+      if (existing) {
+        existing.score += rrfScore;
+        existing.sources.add('vector');
+      } else {
+        fusedScores.set(key, {
+          score: rrfScore,
+          chunk: result,
+          sources: new Set(['vector']),
+        });
+      }
+    }
+
+    // 处理词法结果
+    for (const result of lexicalResults) {
+      const key = getKey(result);
+      const rank = result._rank ?? 0;
+      const rrfScore = wLex / (rrfK0 + rank);
+
+      const existing = fusedScores.get(key);
+      if (existing) {
+        existing.score += rrfScore;
+        existing.sources.add('lexical');
+      } else {
+        fusedScores.set(key, {
+          score: rrfScore,
+          chunk: result,
+          sources: new Set(['lexical']),
+        });
+      }
+    }
+
+    // 转换为数组并按融合分数排序
+    const fused = Array.from(fusedScores.values())
+      .map(({ score, chunk, sources }) => ({
+        ...chunk,
+        score,
+        source: sources.size > 1 ? ('both' as const) : chunk.source,
+      }))
+      .sort((a, b) => b.score - a.score);
+
+    // 惰性求值：避免生产环境下不必要的计算
+    if (isDebugEnabled()) {
+      logger.debug(
+        {
+          vectorCount: vectorResults.length,
+          lexicalCount: lexicalResults.length,
+          fusedCount: fused.length,
+          bothSources: Array.from(fusedScores.values()).filter((v) => v.sources.size > 1).length,
+        },
+        'RRF 融合完成',
+      );
+    }
+
+    return fused;
+  }
+
+  // Rerank 方法
+
+  /**
+   * Rerank
+   */
+  private async rerank(query: string, candidates: ScoredChunk[]): Promise<ScoredChunk[]> {
+    if (candidates.length === 0) return [];
+
+    const reranker = getRerankerClient();
+    const queryTokens = this.extractQueryTokens(query);
+
+    // 构造 rerank 文本：围绕命中行截取，而非头尾截断
+    const textExtractor = (chunk: ScoredChunk): string => {
+      const bc = this.truncateMiddle(chunk.record.breadcrumb, this.config.maxBreadcrumbChars);
+      const budget = Math.max(0, this.config.maxRerankChars - bc.length - 1);
+      const code = this.extractAroundHit(chunk.record.display_code, queryTokens, budget);
+      return `${bc}\n${code}`;
+    };
+
+    const reranked = await reranker.rerankWithData(query, candidates, textExtractor, {
+      topN: this.config.rerankTopN,
+    });
+
+    return reranked
+      .filter((r) => r.data !== undefined)
+      .map((r) => ({
+        ...(r.data as ScoredChunk),
+        score: r.score,
+      }));
+  }
+
+  // Smart TopK Cutoff
+
+  /**
+   * 智能截断策略（Anchor & Floor + Safe Harbor + Delta Guard）
+   *
+   * 核心逻辑：
+   * 1. 低置信熔断：topScore < floor → 返回 top1（CLI 友好）或空
+   * 2. 动态阈值：max(floor, min(ratioThreshold, deltaThreshold))
+   * 3. Safe Harbor：前 minK 个只检查 floor，不检查 ratio/delta
+   * 4. 去重 + 补齐：cutoff 后去重，不足 minK 时从后续补齐
+   */
+  private applySmartCutoff(candidates: ScoredChunk[]): ScoredChunk[] {
+    // 未启用时直接返回原列表
+    if (!this.config.enableSmartTopK) {
+      return candidates;
+    }
+
+    if (candidates.length === 0) return [];
+
+    // 防御：确保降序排列
+    const sorted = candidates.slice().sort((a, b) => b.score - a.score);
+
+    const {
+      smartTopScoreRatio: ratio,
+      smartTopScoreDeltaAbs: deltaAbs,
+      smartMinScore: floor,
+      smartMinK: minK,
+      smartMaxK: maxK,
+    } = this.config;
+
+    const topScore = sorted[0].score;
+
+    // 低置信熔断/降级（CLI 友好：返回 top1）
+    if (topScore < floor) {
+      logger.debug({ topScore, floor }, 'SmartTopK: Top1 below floor, returning top1 only');
+      return [sorted[0]];
+    }
+
+    // 动态阈值计算（ratio + deltaAbs 护栏）
+    const ratioThreshold = topScore * ratio;
+    const deltaThreshold = topScore - deltaAbs;
+    const dynamicThreshold = Math.max(floor, Math.min(ratioThreshold, deltaThreshold));
+
+    const picked: ScoredChunk[] = [];
+
+    for (let i = 0; i < sorted.length; i++) {
+      if (picked.length >= maxK) break;
+
+      const chunk = sorted[i];
+
+      // Safe Harbor：前 minK 只看 floor
+      if (i < minK) {
+        if (chunk.score >= floor) {
+          picked.push(chunk);
+          continue;
+        }
+        // 保护区都过不了 floor，后面更差，直接结束
+        logger.debug(
+          { rank: i, score: chunk.score, floor },
+          'SmartTopK: Safe harbor chunk below floor, breaking',
+        );
+        break;
+      }
+
+      // 保护区外：必须过动态阈值
+      if (chunk.score < dynamicThreshold) {
+        logger.debug(
+          {
+            rank: i,
+            score: chunk.score,
+            dynamicThreshold,
+            topScore,
+            ratioThreshold,
+            deltaThreshold,
+          },
+          'SmartTopK: cutoff at dynamic threshold',
+        );
+        break;
+      }
+
+      picked.push(chunk);
+    }
+
+    // 去重（按 file_path + chunk_index）
+    const deduped = this.dedupChunks(picked);
+
+    // 去重后不足 minK，从后续 candidates 补齐（仅补 floor 以上）
+    if (deduped.length < Math.min(minK, maxK)) {
+      const seen = new Set(deduped.map((c) => this.chunkKey(c)));
+      for (const c of sorted) {
+        if (deduped.length >= Math.min(minK, maxK)) break;
+        if (c.score < floor) break;
+        const key = this.chunkKey(c);
+        if (!seen.has(key)) {
+          seen.add(key);
+          deduped.push(c);
+        }
+      }
+    }
+
+    logger.debug(
+      {
+        originalCount: candidates.length,
+        pickedCount: picked.length,
+        finalCount: deduped.length,
+        topScore,
+        floor,
+        ratio,
+        deltaAbs,
+        ratioThreshold: ratioThreshold.toFixed(3),
+        deltaThreshold: deltaThreshold.toFixed(3),
+        dynamicThreshold: dynamicThreshold.toFixed(3),
+      },
+      'SmartTopK: done',
+    );
+
+    return deduped;
+  }
+
+  /**
+   * 生成 chunk 唯一键（用于去重）
+   */
+  private chunkKey(chunk: ScoredChunk): string {
+    return `${chunk.filePath}#${chunk.chunkIndex}`;
+  }
+
+  /**
+   * 按 file_path + chunk_index 去重
+   */
+  private dedupChunks(list: ScoredChunk[]): ScoredChunk[] {
+    const seen = new Set<string>();
+    const out: ScoredChunk[] = [];
+    for (const c of list) {
+      const k = this.chunkKey(c);
+      if (seen.has(k)) continue;
+      seen.add(k);
+      out.push(c);
+    }
+    return out;
+  }
+
+  // 扩展方法
+
+  /**
+   * 扩展 seed chunks
+   *
+   * 使用 GraphExpander 执行三种扩展策略：
+   * - E1: 同文件邻居
+   * - E2: breadcrumb 补段
+   * - E3: 相对路径 import 解析
+   */
+  private async expand(seeds: ScoredChunk[], queryTokens?: Set<string>): Promise<ScoredChunk[]> {
+    if (seeds.length === 0) return [];
+
+    const expander = await getGraphExpander(this.projectId, this.config);
+    const { chunks, stats } = await expander.expand(seeds, queryTokens);
+
+    logger.debug(stats, '上下文扩展统计');
+
+    return chunks;
+  }
+
+  // 工具方法
+
+  /**
+   * 中间省略截断（保留首尾）
+   */
+  private truncateMiddle(text: string, maxLen: number): string {
+    if (text.length <= maxLen) return text;
+    const half = Math.floor((maxLen - 3) / 2);
+    return `${text.slice(0, half)}...${text.slice(-half)}`;
+  }
+
+  /**
+   * 头尾截断（备用方法，当无命中行时使用）
+   */
+  private truncateHeadTail(text: string, maxLen: number, headRatio: number): string {
+    if (text.length <= maxLen) return text;
+    const headLen = Math.floor(maxLen * headRatio);
+    const tailLen = maxLen - headLen - 3; // "..."
+    if (tailLen <= 0) return text.slice(0, maxLen);
+    return `${text.slice(0, headLen)}...${text.slice(-tailLen)}`;
+  }
+
+  /**
+   * 围绕命中行截取
+   *
+   * 找到第一个包含 query token 的行，截取其上下文
+   * 如果没有命中，降级为头尾截断
+   */
+  private extractAroundHit(text: string, queryTokens: Set<string>, maxLen: number): string {
+    if (text.length <= maxLen) return text;
+
+    const lines = text.split('\n');
+
+    // 找命中行（包含任意 query token 的行）
+    let hitLineIdx = -1;
+    let bestScore = 0;
+
+    for (let i = 0; i < lines.length; i++) {
+      const lineLower = lines[i].toLowerCase();
+      let lineScore = 0;
+      for (const token of queryTokens) {
+        if (lineLower.includes(token)) {
+          lineScore++;
+        }
+      }
+      // 选择命中 token 最多的行
+      if (lineScore > bestScore) {
+        bestScore = lineScore;
+        hitLineIdx = i;
+      }
+    }
+
+    // 无命中，降级为头尾截断
+    if (hitLineIdx === -1) {
+      return this.truncateHeadTail(text, maxLen, this.config.headRatio);
+    }
+
+    // 以命中行为中心，向上下扩展
+    let start = hitLineIdx;
+    let end = hitLineIdx;
+    let currentLen = lines[hitLineIdx].length;
+
+    // 交替向上、向下扩展
+    while (currentLen < maxLen) {
+      const canUp = start > 0;
+      const canDown = end < lines.length - 1;
+
+      if (!canUp && !canDown) break;
+
+      // 先向上
+      if (canUp) {
+        const upLen = lines[start - 1].length + 1; // +1 for newline
+        if (currentLen + upLen <= maxLen) {
+          start--;
+          currentLen += upLen;
+        }
+      }
+
+      // 再向下
+      if (canDown) {
+        const downLen = lines[end + 1].length + 1;
+        if (currentLen + downLen <= maxLen) {
+          end++;
+          currentLen += downLen;
+        }
+      }
+
+      // 如果两边都无法扩展了，退出
+      if (
+        (start === 0 || lines[start - 1].length + 1 + currentLen > maxLen) &&
+        (end === lines.length - 1 || lines[end + 1].length + 1 + currentLen > maxLen)
+      ) {
+        break;
+      }
+    }
+
+    // 构造结果
+    const result = lines.slice(start, end + 1).join('\n');
+    const prefix = start > 0 ? '...' : '';
+    const suffix = end < lines.length - 1 ? '...' : '';
+
+    return prefix + result + suffix;
+  }
+
+  /**
+   * 获取当前配置
+   */
+  getConfig(): SearchConfig {
+    return { ...this.config };
+  }
+}

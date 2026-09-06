@@ -1,0 +1,223 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (e.g., 0.2.0) (must have tag v0.2.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  # Native dependencies (better-sqlite3, lancedb, tree-sitter) đều có prebuilt binaries
+  # Chỉ cần publish từ một platform, npm sẽ tự động tải đúng binary khi install
+  build-and-publish:
+    name: Build and Publish
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code (tag on dispatch)
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/tags/v{0}', github.event.inputs.version) || github.ref }}
+
+      - name: Resolve release version
+        id: rel
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            INPUT="${{ github.event.inputs.version }}"
+            VER="${INPUT#v}"
+            echo "tag=v$VER" >> "$GITHUB_OUTPUT"
+            echo "ver=$VER" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+            echo "ver=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          registry-url: 'https://registry.npmjs.org'
+          cache: pnpm
+
+      - name: Upgrade npm for provenance publishing
+        run: |
+          npm i -g npm@^11.5.1
+          npm -v
+          node -v
+          pnpm -v
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run tests
+        run: pnpm test
+
+      - name: Build all packages (plugins first, then lang-all)
+        run: |
+          pnpm build
+          pnpm -r --filter='!./packages/lang-all' build
+          pnpm --filter='./packages/lang-all' build
+
+      - name: Verify versions match tag
+        run: |
+          VER="${{ steps.rel.outputs.ver }}"
+          node - <<'NODE'
+          const fs = require('fs');
+          const ver = process.env.VER;
+          const files = [
+            ['@nv876620-design/ace-recall', 'package.json'],
+            ['@nv876620-design/ace-lang-typescript', 'packages/lang-typescript/package.json'],
+            ['@nv876620-design/ace-lang-kotlin', 'packages/lang-kotlin/package.json'],
+            ['@nv876620-design/ace-lang-csharp', 'packages/lang-csharp/package.json'],
+            ['@nv876620-design/ace-lang-cpp', 'packages/lang-cpp/package.json'],
+            ['@nv876620-design/ace-lang-java', 'packages/lang-java/package.json'],
+            ['@nv876620-design/ace-lang-ruby', 'packages/lang-ruby/package.json'],
+            ['@nv876620-design/ace-lang-c', 'packages/lang-c/package.json'],
+            ['@nv876620-design/ace-lang-php', 'packages/lang-php/package.json'],
+            ['@nv876620-design/ace-lang-rust', 'packages/lang-rust/package.json'],
+            ['@nv876620-design/ace-lang-swift', 'packages/lang-swift/package.json'],
+            ['@nv876620-design/ace-lang-all', 'packages/lang-all/package.json'],
+          ];
+          let ok = true;
+          for (const [name, file] of files) {
+            const pkg = JSON.parse(fs.readFileSync(file, 'utf8'));
+            if (pkg.version !== ver) {
+              console.error(`${name} version mismatch: ${pkg.version} != ${ver}`);
+              ok = false;
+            }
+          }
+          if (!ok) process.exit(1);
+          NODE
+        env:
+          VER: ${{ steps.rel.outputs.ver }}
+
+      - name: Publish packages (plugins first, then main)
+        run: |
+          set -euo pipefail
+          VER="${{ steps.rel.outputs.ver }}"
+
+          PACKAGE_NAMES=(
+            "@nv876620-design/ace-lang-typescript"
+            "@nv876620-design/ace-lang-kotlin"
+            "@nv876620-design/ace-lang-csharp"
+            "@nv876620-design/ace-lang-cpp"
+            "@nv876620-design/ace-lang-java"
+            "@nv876620-design/ace-lang-ruby"
+            "@nv876620-design/ace-lang-c"
+            "@nv876620-design/ace-lang-php"
+            "@nv876620-design/ace-lang-rust"
+            "@nv876620-design/ace-lang-swift"
+            "@nv876620-design/ace-lang-all"
+            "@nv876620-design/ace-recall"
+          )
+
+          echo "Preflight: verify npm publish identity"
+          npm whoami
+
+          for pkg in "${PACKAGE_NAMES[@]}"; do
+            if npm view "$pkg@$VER" version >/dev/null 2>&1; then
+              echo "Preflight: $pkg@$VER already exists"
+              continue
+            fi
+
+            echo "Preflight: $pkg@$VER is not published yet"
+          done
+
+          publish_if_needed() {
+            local PKG="$1"
+            local DIR="$2"
+
+            if npm view "$PKG@$VER" version >/dev/null 2>&1; then
+              echo "Skip publish: $PKG@$VER already exists"
+              return 0
+            fi
+
+            echo "Publishing $PKG@$VER from $DIR"
+            if [ "$DIR" = "." ]; then
+              npm publish --access public --provenance
+            else
+              (
+                cd "$DIR"
+                npm publish --access public --provenance
+              )
+            fi
+          }
+
+          publish_if_needed "@nv876620-design/ace-lang-typescript" "packages/lang-typescript"
+          publish_if_needed "@nv876620-design/ace-lang-kotlin" "packages/lang-kotlin"
+          publish_if_needed "@nv876620-design/ace-lang-csharp" "packages/lang-csharp"
+          publish_if_needed "@nv876620-design/ace-lang-cpp" "packages/lang-cpp"
+          publish_if_needed "@nv876620-design/ace-lang-java" "packages/lang-java"
+          publish_if_needed "@nv876620-design/ace-lang-ruby" "packages/lang-ruby"
+          publish_if_needed "@nv876620-design/ace-lang-c" "packages/lang-c"
+          publish_if_needed "@nv876620-design/ace-lang-php" "packages/lang-php"
+          publish_if_needed "@nv876620-design/ace-lang-rust" "packages/lang-rust"
+          publish_if_needed "@nv876620-design/ace-lang-swift" "packages/lang-swift"
+          publish_if_needed "@nv876620-design/ace-lang-all" "packages/lang-all"
+
+          publish_if_needed "@nv876620-design/ace-recall" "."
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Create GitHub Release
+        if: startsWith(steps.rel.outputs.tag, 'v')
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ steps.rel.outputs.tag }}
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+          body: |
+            ## 🚀 ACE (Awesome Context Engineering) ${{ steps.rel.outputs.tag }}
+
+            ### 版本亮点
+            - 支持 Node.js 20 / 22（Node 要求：`>=20 <24`，推荐 Node 22 LTS）
+            - 主包默认内置 JavaScript / Python / Go 的 AST 分片能力
+            - TypeScript / Kotlin / Java / Rust 提升为默认核心支持
+            - C / C++ / C# / PHP / Ruby / Swift 继续通过按需插件增强
+            - 🌍 跨平台支持：Windows / macOS / Linux (x64 / arm64)
+            - 📦 Native 依赖自动安装：better-sqlite3 / lancedb / tree-sitter
+
+            ### 全局安装
+            ```bash
+            npm install -g @nv876620-design/ace-recall
+            # 或使用别名
+            npm install -g ace-recall
+            ```
+
+            ### 验证安装
+            ```bash
+            ace --version
+            ace init
+            ```
+
+            ### 按需安装插件（示例）
+            ```bash
+            npm install -g @nv876620-design/ace-lang-csharp
+            npm install -g @nv876620-design/ace-lang-swift
+            npm install -g @nv876620-design/ace-lang-all  # 所有语言插件
+            ```
+
+            ### 跨平台说明
+            - **Windows**: 自动下载 Windows x64 prebuilt binaries
+            - **macOS**: 自动下载 macOS x64/arm64 prebuilt binaries
+            - **Linux**: 自动下载 Linux x64/arm64 prebuilt binaries
+            - Native 模块会在 `npm install` 时自动获取对应平台的预编译版本
+
+            > 注意：首次安装可能需要下载 native binaries，请确保网络连接正常。
+            > 如遇到安装问题，可尝试清除缓存：`npm cache clean --force`
