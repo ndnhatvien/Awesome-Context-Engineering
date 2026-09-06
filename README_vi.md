@@ -421,6 +421,50 @@ src/
 
 ---
 
+## 🔬 Cách ACE hoạt động
+
+ACE biến codebase thành một "gói ngữ cảnh" tối ưu token cho AI agent. Toàn bộ quy trình gồm 2 pha: **index** (một lần, cập nhật tăng dần) và **search** (mỗi lần truy vấn).
+
+### Index: xây dựng chỉ mục ngữ nghĩa
+
+```
+filesystem
+  → Scan (crawler gitignore-aware)
+  → Filter (whitelist extension + IGNORE/INCLUDE patterns)
+  → XXHash fingerprint (phát hiện thay đổi)
+  → SemanticSplitter (chunk AST bằng Tree-sitter)
+  → Embeddings (batch, rate limiting, xoay vòng nhiều key)
+  → LanceDB (vector) + SQLite (FTS5 + metadata)
+```
+
+1. **Quét & phát hiện thay đổi** — mỗi file có `xxhash` fingerprint; chỉ file `added/modified` bị xử lý lại nên re-index nhanh và tự phục hồi (`ace index`, `ace doctor --repair`).
+2. **Chunk theo AST** — `SemanticSplitter` dùng Tree-sitter cắt theo phạm vi logic (class/function/method), để mỗi chunk là một đơn vị ý nghĩa hoàn chỉnh thay vì cửa sổ dòng thô.
+3. **Ghi song song 3 chỉ mục**:
+   - **Vector** (LanceDB): embedding từng chunk cho truy vấn ngữ nghĩa.
+   - **Lexical** (SQLite FTS5): BM25 trên nội dung chunk, kèm file-level FTS fallback + token-overlap drill-down.
+   - **Cấu trúc**: `symbol_occurrences` (tra symbol chính xác) + **path index** (FTS theo tên file) — để "định nghĩa X nằm ở đâu" / "file Y nào" không cần tốn embedding.
+
+### Search: ráp gói ngữ cảnh
+
+```
+query
+  → Embed query
+  → Recall lai (vector + BM25 + exact symbol + path index)
+  → RRF fusion (gộp thành 1 danh sách)
+  → Rerank (cross-encoder API, nhiều key) + source priority
+  → GraphExpander E1/E2/E3 (neighbors / breadcrumbs / imports)
+  → SmartTopK (anchor + floor, delta guard, safe harbor, hard cap)
+  → ContextPacker (coverage-first, token budget, gộp chunk cùng file)
+  → Gói ngữ cảnh sẵn sàng cho agent
+```
+
+1. **Recall song song 4 kênh** — vector dense, BM25 lexical, khớp symbol chính xác (`symbol_occurrences`), và path/filename. Mỗi kênh trả về một thứ hạng riêng.
+2. **RRF fusion** gộp các danh sách thành một thứ hạng không cần cân chuẩn điểm; sau đó **reranker** (cross-encoder) sắp lại để tăng độ chính xác, kèm source-priority áp sau.
+3. **Mở rộng đồ thị (E1/E2/E3)** kéo thêm chunk lân cận (neighbors), phạm vi bao ngoài (breadcrumbs), và đồ thị phụ thuộc (imports, 12+ ngôn ngữ) để câu trả lời đi kèm code hỗ trợ.
+4. **SmartTopK + ContextPacker** chốt kết quả cuối: nhiều lớp ngưỡng loại hit kém, packer gộp segment cùng file, cân bằng coverage vs token budget, và trả về khối ngữ cảnh cô đặc cho agent — phơi bày qua MCP tool `codebase-retrieval`.
+
+---
+
 ## 🔧 Cấu hình & Biến môi trường
 
 File cấu hình: `~/.ace/.env`

@@ -292,6 +292,50 @@ User Query
 
 ---
 
+## 🔬 How It Works
+
+ACE turns a codebase into a token-optimized context package for an AI agent. Everything happens in two phases — **indexing** (one-time, incremental) and **search** (per query).
+
+### Indexing: build the semantic index
+
+```
+filesystem
+  → Scan (gitignore-aware crawler)
+  → Filter (extension whitelist + IGNORE/INCLUDE patterns)
+  → XXHash fingerprint (change detection)
+  → SemanticSplitter (Tree-sitter AST chunks)
+  → Embeddings (batched, rate-limited, multi-key rotation)
+  → LanceDB (vectors) + SQLite (FTS5 + metadata)
+```
+
+1. **Scan & detect changes** — each file gets an `xxhash` fingerprint. Only `added/modified` files are reprocessed, so re-indexing is fast and self-healing (`ace index`, `ace doctor --repair`).
+2. **AST chunking** — `SemanticSplitter` parses code with Tree-sitter and cuts it along logical scopes (classes/functions/methods), so a chunk is a self-contained unit of meaning rather than a raw line window.
+3. **Write three indexes in parallel**:
+   - **Vector** (LanceDB): embedding of each chunk for semantic recall.
+   - **Lexical** (SQLite FTS5): BM25 over chunk text, plus a file-level FTS fallback with token-overlap drill-down.
+   - **Structure**: `symbol_occurrences` (exact symbol lookup) and the **path index** (filename/FTS) so "where is X defined" and "which file does Y" resolve without embeddings.
+
+### Search: assemble the context pack
+
+```
+query
+  → Embed query
+  → Hybrid recall (vector + BM25 + exact symbol + path index)
+  → RRF fusion (one ranked list)
+  → Rerank (cross-encoder API, multi-key) + source priority
+  → GraphExpander E1/E2/E3 (neighbors / breadcrumbs / imports)
+  → SmartTopK (anchor + floor, delta guard, safe harbor, hard cap)
+  → ContextPacker (coverage-first, token budget, same-file merge)
+  → Ready-for-agent context package
+```
+
+1. **Recall 4 channels in parallel** — dense vectors, BM25 lexical, exact symbol matches (`symbol_occurrences`), and path/filename hits. Each channel returns its own ranking.
+2. **RRF fusion** merges them into one list without score-calibration headaches; a cross-encoder **reranker** then reorders for precision, with source-priority bias applied afterwards.
+3. **Graph expansion (E1/E2/E3)** pulls in adjacent chunks (neighbors), enclosing scopes (breadcrumbs), and the dependency graph (imports across 12+ languages) so the answer ships with its supporting code.
+4. **SmartTopK + ContextPacker** do the final winnowing: multi-guard thresholds drop low-quality hits, then the packer merges same-file segments, balances coverage vs. token budget, and returns a dense context block for the agent — exposed as the `codebase-retrieval` MCP tool.
+
+---
+
 ## 🧪 Development & Testing
 
 ### Build Commands
