@@ -17,6 +17,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Lowercase image repository name
+        run: |
+          echo "IMAGE_REPOSITORY=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -28,13 +32,13 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           push: true
           tags: |
-            ghcr.io/${{ github.repository }}:latest
-            ghcr.io/${{ github.repository }}:${{ github.sha }}
+            ghcr.io/${{ env.IMAGE_REPOSITORY }}:latest
+            ghcr.io/${{ env.IMAGE_REPOSITORY }}:${{ github.sha }}
           platforms: linux/amd64
           cache-from: type=gha
           cache-to: type=gha,mode=max
