@@ -9,20 +9,19 @@ RUN apt-get update && \
 WORKDIR /app
 
 # Enable pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack prepare pnpm@10.6.2 --activate
 
 # Copy .npmrc first to configure pnpm before install
 COPY .npmrc ./
 
-# Copy package files and scripts
+# Copy package files, workspace packages, and scripts
 COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml* ./
 COPY scripts ./scripts
+COPY packages ./packages
 
 # Install dependencies using hoisted node-linker so node_modules is self-contained (no symlinks)
-# Ignore unrs-resolver build script locally, but we must rebuild it in CI so pnpm run build doesn't fail deps check.
-RUN pnpm install --frozen-lockfile --config.node-linker=hoisted --config.ignore-scripts=true || \
-    (pnpm install --frozen-lockfile --config.node-linker=hoisted --ignore-scripts && \
-     pnpm rebuild tree-sitter better-sqlite3 esbuild tree-sitter-cli tree-sitter-go tree-sitter-javascript tree-sitter-python tree-sitter-c tree-sitter-c-sharp tree-sitter-cpp tree-sitter-java tree-sitter-kotlin tree-sitter-php tree-sitter-ruby tree-sitter-rust tree-sitter-swift tree-sitter-typescript sharp unrs-resolver)
+RUN pnpm install --config.node-linker=hoisted --ignore-scripts && \
+    pnpm rebuild tree-sitter better-sqlite3 esbuild tree-sitter-cli tree-sitter-go tree-sitter-javascript tree-sitter-python tree-sitter-c tree-sitter-c-sharp tree-sitter-cpp tree-sitter-java tree-sitter-kotlin tree-sitter-php tree-sitter-ruby tree-sitter-rust tree-sitter-swift tree-sitter-typescript sharp unrs-resolver
 
 # Copy source code
 COPY . .
@@ -42,7 +41,7 @@ RUN apt-get update && \
 WORKDIR /app
 
 # Enable pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack prepare pnpm@10.6.2 --activate
 
 # Copy built package files and node_modules from builder
 COPY package.json ./
