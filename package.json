@@ -9,7 +9,6 @@
     "url": "git+https://github.com/nv876620-design/ace-recall.git"
   },
   "homepage": "https://github.com/nv876620-design/ace-recall#readme",
-  "packageManager": "pnpm@10.6.2",
   "private": false,
   "publishConfig": {
     "access": "public"

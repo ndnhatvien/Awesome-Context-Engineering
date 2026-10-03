@@ -1,8 +1,0 @@
-# Ignore Docker files so Vercel uses Serverless Functions (/api) instead of Container builds
-Dockerfile
-.dockerignore
-
-# Ignore tests, docs, and CI configs
-tests/
-docs/
-.github/
