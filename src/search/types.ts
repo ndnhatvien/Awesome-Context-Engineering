@@ -80,6 +80,14 @@ export interface SearchConfig {
    * 硬上限，避免刷屏 / token 溢出
    */
   smartMaxK: number;
+
+  // === Cost-Model Ranking (Value-per-Token Optimizer) ===
+  /** 是否启用 Value-per-Token 信息密度重排序 */
+  enableCostModelRanking?: boolean;
+  /** Token 惩罚衰减指数 (alpha，默认 0.15) */
+  costModelAlpha?: number;
+  /** 保留的绝对高分锚点数 (默认 1) */
+  costModelPreserveTopK?: number;
 }
 
 /**

@@ -89,6 +89,12 @@ export const codebaseRetrievalSchema = z.object({
     .describe(
       "Language blacklist: exclude specified languages (e.g., ['markdown', 'json']). Can be combined with source_code_only. Unknown languages will cause validation error.",
     ),
+  cost_aware_ranking: z
+    .boolean()
+    .optional()
+    .describe(
+      'When true, applies Cost-Model value-per-token density ranking (optimizes for compact, high-precision code definitions over giant bloated files).',
+    ),
 });
 
 export type CodebaseRetrievalInput = z.infer<typeof codebaseRetrievalSchema>;
@@ -364,6 +370,7 @@ export async function handleCodebaseRetrieval(
     source_code_only,
     include_languages,
     exclude_languages,
+    cost_aware_ranking,
   } = args;
 
   // 早失败：参数冲突检测
@@ -451,9 +458,13 @@ export async function handleCodebaseRetrieval(
   // 4. 延迟导入 SearchService（避免 MCP 启动时加载 native 模块）
   const { SearchService } = await import('../../search/SearchService.js');
 
-  // 5. 创建 SearchService 实例（使用 Zen Config）
+  // 5. 创建 SearchService 实例（使用 Zen Config，叠加可选 cost_aware_ranking）
   onProgress?.(70, 100, '初始化语义检索引擎...');
-  const service = new SearchService(projectId, normalizedRepoPath, configOverride);
+  const effectiveConfig: Partial<SearchConfig> = {
+    ...configOverride,
+    ...(cost_aware_ranking !== undefined ? { enableCostModelRanking: cost_aware_ranking } : {}),
+  };
+  const service = new SearchService(projectId, normalizedRepoPath, effectiveConfig);
 
   try {
     await service.init();

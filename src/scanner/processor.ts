@@ -7,6 +7,7 @@ import { getAceProfile, getChunkingConfig } from '../config.js';
 import { readFileWithEncoding } from '../utils/encoding.js';
 import { sha256 } from './hash.js';
 import { getAllowedLanguages, getLanguage, isAllowedExtension } from './language.js';
+import { parseSqlToChunks } from './schemaIngester.js';
 
 /**
  * 已知扩展名启用降级行分片的阈值（字节）
@@ -263,11 +264,19 @@ async function processFile(
     // 语义分片
     let chunks: ProcessedChunk[] = [];
 
-    if (shouldUseLargeFileFallback) {
+    // SQL / DDL Schema 优先切分
+    if (language === 'sql') {
+      const schemaChunks = parseSqlToChunks(content, relPath);
+      if (schemaChunks.length > 0) {
+        chunks = schemaChunks;
+      }
+    }
+
+    if (chunks.length === 0 && shouldUseLargeFileFallback) {
       const splitStartedAt = Date.now();
       chunks = getSplitter().splitPlainText(content, relPath, language);
       addTiming(timing, 'largeFallbackSplitMs', Date.now() - splitStartedAt);
-    } else {
+    } else if (chunks.length === 0) {
       // 1. 尝试 AST 分片
       try {
         const parserLoadStartedAt = Date.now();

@@ -46,4 +46,9 @@ export const DEFAULT_CONFIG: SearchConfig = {
   smartMinScore: 0.25,
   smartMinK: 2,
   smartMaxK: 8,
+
+  // Cost-Model Ranking (Value-per-Token Optimizer)
+  enableCostModelRanking: false,
+  costModelAlpha: 0.15,
+  costModelPreserveTopK: 1,
 };

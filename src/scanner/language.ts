@@ -29,6 +29,7 @@ const LANGUAGE_MAP: Record<string, string> = {
   '.fish': 'shell',
   '.ps1': 'powershell',
   '.sql': 'sql',
+  '.ddl': 'sql',
   '.yaml': 'yaml',
   '.yml': 'yaml',
   '.json': 'json',

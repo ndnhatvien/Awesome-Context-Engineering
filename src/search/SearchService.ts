@@ -10,6 +10,7 @@
 
 import type Database from 'better-sqlite3';
 import { getRerankerClient } from '../api/reranker.js';
+import { AdaptiveReplacementCache, type ArcCacheStats } from '../cache/index.js';
 import { getEmbeddingConfig } from '../config.js';
 import { initDb } from '../db/index.js';
 import { closeIndexer, getIndexer, type Indexer } from '../indexer/index.js';
@@ -20,6 +21,7 @@ import type { SearchResult as VectorSearchResult } from '../vectorStore/index.js
 import { closeVectorStore, getVectorStore, type VectorStore } from '../vectorStore/index.js';
 import { ContextPacker } from './ContextPacker.js';
 import { DEFAULT_CONFIG } from './config.js';
+import { applyCostModelRanking } from './costModelRanking.js';
 import { applyFilters, enrichChunkMetadata } from './filterApplier.js';
 import {
   isChunksFtsInitialized,
@@ -132,15 +134,42 @@ export function __resetTokenBoundaryRegexCacheForTest(): void {
 }
 
 export class SearchService {
+  private static projectArcCaches = new Map<
+    string,
+    AdaptiveReplacementCache<string, ContextPack>
+  >();
   private projectId: string;
   private indexer: Indexer | null = null;
   private vectorStore: VectorStore | null = null;
   private db: Database.Database | null = null;
   private config: SearchConfig;
+  private arcCache: AdaptiveReplacementCache<string, ContextPack>;
 
   constructor(projectId: string, _projectPath: string, config?: Partial<SearchConfig>) {
     this.projectId = projectId;
     this.config = { ...DEFAULT_CONFIG, ...config };
+
+    let cache = SearchService.projectArcCaches.get(projectId);
+    if (!cache) {
+      cache = new AdaptiveReplacementCache<string, ContextPack>({
+        capacity: 100,
+        defaultTtlMs: 5 * 60 * 1000,
+      });
+      SearchService.projectArcCaches.set(projectId, cache);
+    }
+    this.arcCache = cache;
+  }
+
+  static clearAllArcCaches(): void {
+    SearchService.projectArcCaches.clear();
+  }
+
+  getArcCacheStats(): ArcCacheStats {
+    return this.arcCache.getStats();
+  }
+
+  clearArcCache(): void {
+    this.arcCache.clear();
   }
 
   async init(): Promise<void> {
@@ -184,6 +213,20 @@ export class SearchService {
     channels?: Partial<QueryChannels>,
     options?: BuildContextPackOptions,
   ): Promise<ContextPack> {
+    const cacheKey = JSON.stringify({
+      q: query,
+      ch: channels,
+      lang: options?.languageFilter,
+      costModel: this.config.enableCostModelRanking,
+      alpha: this.config.costModelAlpha,
+      smartTopK: this.config.enableSmartTopK,
+    });
+
+    const cachedPack = this.arcCache.get(cacheKey);
+    if (cachedPack) {
+      logger.debug({ query }, 'SearchService: ARC Cache hit');
+      return cachedPack;
+    }
     // 0. Parse query for field-qualified filters
     const parsedQuery = parseQuery(query);
     const naturalQuery = parsedQuery.naturalText || query;
@@ -258,7 +301,15 @@ export class SearchService {
 
     // 4. Smart TopK Cutoff
     t0 = Date.now();
-    const seeds = this.applySmartCutoff(reranked);
+    let seeds = this.applySmartCutoff(reranked);
+
+    // 4b. Cost-Model Ranking (Value-per-Token Optimizer)
+    if (this.config.enableCostModelRanking) {
+      seeds = applyCostModelRanking(seeds, {
+        alpha: this.config.costModelAlpha,
+        preserveTopK: this.config.costModelPreserveTopK,
+      });
+    }
     timingMs.smartCutoff = Date.now() - t0;
 
     // 5. 扩展（Phase 2 实现）
@@ -284,7 +335,7 @@ export class SearchService {
     const files = await packer.pack([...seeds, ...filteredExpanded]);
     timingMs.pack = Date.now() - t0;
 
-    return {
+    const resultPack: ContextPack = {
       query,
       seeds,
       expanded: filteredExpanded,
@@ -295,6 +346,9 @@ export class SearchService {
         timingMs,
       },
     };
+
+    this.arcCache.set(cacheKey, resultPack);
+    return resultPack;
   }
 
   // 召回方法

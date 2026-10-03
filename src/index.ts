@@ -195,6 +195,7 @@ cli
   .option('--include-languages <langs>', '仅包含指定语言（逗号分隔）')
   .option('--exclude-languages <langs>', '排除指定语言（逗号分隔）')
   .option('--zen', '使用 MCP Zen 配置（默认开启）')
+  .option('--cost-aware', '启用 Value-per-Token 信息密度重排序')
   .action(
     async (options: {
       repoPath?: string;
@@ -204,6 +205,7 @@ cli
       includeLanguages?: string;
       excludeLanguages?: string;
       zen?: boolean;
+      costAware?: boolean;
     }) => {
       const repoPath = options.repoPath ? path.resolve(options.repoPath) : process.cwd();
       const informationRequest = options.informationRequest;
@@ -238,6 +240,7 @@ cli
           source_code_only: options.sourceCodeOnly,
           include_languages: includeLanguages.length > 0 ? includeLanguages : undefined,
           exclude_languages: excludeLanguages.length > 0 ? excludeLanguages : undefined,
+          cost_aware_ranking: options.costAware,
         },
         useZen ? undefined : {},
       );

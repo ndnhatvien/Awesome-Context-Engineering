@@ -3,6 +3,14 @@
  */
 
 export { ContextPacker } from './ContextPacker.js';
+export {
+  applyCostModelRanking,
+  type CostModelRankingOptions,
+  calculateDensityScore,
+  type DensityChunkMetadata,
+  estimateChunkTokens,
+  estimateTokens,
+} from './costModelRanking.js';
 export { applyFilters, enrichChunkMetadata } from './filterApplier.js';
 export { GraphExpander } from './GraphExpander.js';
 export type { ParsedQuery } from './queryParser.js';
