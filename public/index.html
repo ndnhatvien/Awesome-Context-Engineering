@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ACE - Awesome Context Engineering Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    pre code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col selection:bg-indigo-500 selection:text-white">
+
+  <!-- Top Navbar -->
+  <header class="border-b border-slate-800 bg-slate-900/60 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-9 h-9 rounded-lg bg-gradient-to-tr from-indigo-500 to-purple-500 flex items-center justify-center shadow-lg shadow-indigo-500/25">
+          <i class="fa-solid fa-brain text-white text-lg"></i>
+        </div>
+        <div>
+          <span class="font-bold text-lg tracking-tight bg-gradient-to-r from-white via-slate-200 to-indigo-300 bg-clip-text text-transparent">ACE Engine</span>
+          <span class="ml-2 text-xs px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-mono">v0.2.0</span>
+        </div>
+      </div>
+      <div class="flex items-center space-x-4">
+        <div id="status-badge" class="flex items-center space-x-2 text-xs px-3 py-1.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span id="status-text">Connecting...</span>
+        </div>
+        <button onclick="toggleConfigModal()" class="text-xs px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 transition flex items-center space-x-1.5">
+          <i class="fa-solid fa-key text-xs"></i>
+          <span>BYOK Settings</span>
+        </button>
+        <a href="https://github.com/ndnhatvien/Awesome-Context-Engineering" target="_blank" class="text-slate-400 hover:text-white transition">
+          <i class="fa-brands fa-github text-xl"></i>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full space-y-8">
+    
+    <!-- Hero / Metrics Overview -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div class="p-5 rounded-xl border border-slate-800 bg-slate-900/40">
+        <div class="text-xs font-medium text-slate-400 uppercase tracking-wider">Engine Status</div>
+        <div class="mt-2 text-2xl font-bold text-white flex items-center gap-2">
+          <span>Operational</span>
+          <i class="fa-solid fa-circle-check text-emerald-400 text-lg"></i>
+        </div>
+        <div id="meta-cloud-ready" class="mt-1 text-xs text-slate-500">Cloud Ready: Yes</div>
+      </div>
+
+      <div class="p-5 rounded-xl border border-slate-800 bg-slate-900/40">
+        <div class="text-xs font-medium text-slate-400 uppercase tracking-wider">Storage Engine</div>
+        <div id="meta-storage" class="mt-2 text-2xl font-bold text-indigo-400 flex items-center gap-2">
+          <span>Supabase</span>
+          <i class="fa-solid fa-database text-indigo-400 text-lg"></i>
+        </div>
+        <div class="mt-1 text-xs text-slate-500">PostgreSQL 15+ & pgvector</div>
+      </div>
+
+      <div class="p-5 rounded-xl border border-slate-800 bg-slate-900/40">
+        <div class="text-xs font-medium text-slate-400 uppercase tracking-wider">MCP Protocol</div>
+        <div class="mt-2 text-2xl font-bold text-white">Streamable HTTP</div>
+        <div class="mt-1 text-xs text-slate-500">Zero-timeout heartbeat support</div>
+      </div>
+
+      <div class="p-5 rounded-xl border border-slate-800 bg-slate-900/40">
+        <div class="text-xs font-medium text-slate-400 uppercase tracking-wider">Available Tools</div>
+        <div class="mt-2 text-2xl font-bold text-white">4 Tools</div>
+        <div class="mt-1 text-xs text-slate-500">Retrieval, Expand, Memory, Commit</div>
+      </div>
+    </div>
+
+    <!-- Playground & Config Tabs -->
+    <div class="border border-slate-800 rounded-xl bg-slate-900/30 overflow-hidden shadow-2xl">
+      <!-- Tabs -->
+      <div class="flex border-b border-slate-800 bg-slate-900/60 px-4">
+        <button onclick="switchTab('playground')" id="tab-btn-playground" class="px-4 py-3 text-sm font-medium border-b-2 border-indigo-500 text-white flex items-center gap-2">
+          <i class="fa-solid fa-magnifying-glass text-indigo-400"></i>
+          <span>Retrieval Playground</span>
+        </button>
+        <button onclick="switchTab('mcp-config')" id="tab-btn-mcp-config" class="px-4 py-3 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2">
+          <i class="fa-solid fa-plug text-slate-400"></i>
+          <span>MCP Client Setup</span>
+        </button>
+        <button onclick="switchTab('docs')" id="tab-btn-docs" class="px-4 py-3 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2">
+          <i class="fa-solid fa-book text-slate-400"></i>
+          <span>API Reference</span>
+        </button>
+      </div>
+
+      <!-- Tab 1: Retrieval Playground -->
+      <div id="tab-playground" class="p-6 space-y-6">
+        <div class="max-w-3xl space-y-4">
+          <div>
+            <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Semantic Information Request</label>
+            <div class="relative">
+              <input type="text" id="query-input" placeholder="e.g. Trace authentication and token validation flow" 
+                class="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition pl-10"
+                value="Trace authentication flow">
+              <i class="fa-solid fa-search absolute left-3.5 top-3.5 text-slate-500"></i>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Project ID / Repo</label>
+              <input type="text" id="repo-input" value="default" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 transition">
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Response Mode</label>
+              <select id="mode-input" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 transition">
+                <option value="overview">Overview (Packed Context)</option>
+                <option value="skeleton">Skeleton (AST Folded -89% tokens)</option>
+                <option value="raw">Raw Chunks</option>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold uppercase text-slate-400 mb-1">Cost-Aware Ranking</label>
+              <div class="flex items-center h-9">
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" id="cost-aware-input" checked class="sr-only peer">
+                  <div class="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                  <span class="ml-2 text-xs text-slate-300">Enabled</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-3">
+            <button onclick="executeSearch()" id="search-btn" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium transition shadow-lg shadow-indigo-600/25 flex items-center gap-2">
+              <i class="fa-solid fa-bolt"></i>
+              <span>Run Retrieval</span>
+            </button>
+            <span id="search-time" class="text-xs text-slate-500 hidden"></span>
+          </div>
+        </div>
+
+        <!-- Results Display -->
+        <div id="results-container" class="hidden space-y-4 pt-4 border-t border-slate-800">
+          <div class="flex items-center justify-between">
+            <div class="text-xs font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+              <span>Retrieval Output</span>
+              <span id="results-count" class="px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 text-xs"></span>
+            </div>
+            <button onclick="copyOutput()" class="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1">
+              <i class="fa-regular fa-copy"></i>
+              <span>Copy Response</span>
+            </button>
+          </div>
+          <div class="relative">
+            <pre id="output-content" class="p-4 bg-slate-950 border border-slate-800 rounded-lg text-xs font-mono text-slate-300 overflow-x-auto max-h-[500px] leading-relaxed"></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 2: MCP Client Setup -->
+      <div id="tab-mcp-config" class="hidden p-6 space-y-6">
+        <div>
+          <h3 class="text-base font-semibold text-white">Connect Remote MCP Server</h3>
+          <p class="text-xs text-slate-400 mt-1">Copy this JSON configuration into your AI Assistant settings to connect remote ACE retrieval over Streamable HTTP.</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- Claude Desktop / Cursor -->
+          <div class="p-5 rounded-lg border border-slate-800 bg-slate-950 space-y-3">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <i class="fa-solid fa-terminal text-indigo-400"></i>
+                <span class="font-medium text-sm text-white">Claude Desktop / Cursor MCP Config</span>
+              </div>
+              <button onclick="copyText('cursor-config-code', this)" class="text-xs px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition">
+                <i class="fa-regular fa-copy mr-1"></i> Copy
+              </button>
+            </div>
+            <pre class="p-3 bg-slate-900 border border-slate-800 rounded text-xs font-mono text-slate-300 overflow-x-auto"><code id="cursor-config-code"></code></pre>
+            <p class="text-xs text-slate-500">Paste in <code class="text-indigo-300">claude_desktop_config.json</code> or Cursor MCP settings.</p>
+          </div>
+
+          <!-- Windsurf / Antigravity -->
+          <div class="p-5 rounded-lg border border-slate-800 bg-slate-950 space-y-3">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <i class="fa-solid fa-wind text-purple-400"></i>
+                <span class="font-medium text-sm text-white">cURL REST Endpoint</span>
+              </div>
+              <button onclick="copyText('curl-config-code', this)" class="text-xs px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition">
+                <i class="fa-regular fa-copy mr-1"></i> Copy
+              </button>
+            </div>
+            <pre class="p-3 bg-slate-900 border border-slate-800 rounded text-xs font-mono text-slate-300 overflow-x-auto"><code id="curl-config-code"></code></pre>
+            <p class="text-xs text-slate-500">Fast REST retrieval directly from CI/CD, scripts, or webhook agents.</p>
+          </div>
+        </div>
+
+        <div class="p-4 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-300 flex items-start gap-3">
+          <i class="fa-solid fa-circle-info text-base mt-0.5"></i>
+          <div>
+            <span class="font-semibold">Zero Timeout Heartbeat:</span> ACE on Vercel emits periodic SSE keepalive pulses during heavy index & rerank pipelines, preventing Claude Code and Cursor from disconnecting after 300s timeouts.
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 3: API Reference -->
+      <div id="tab-docs" class="hidden p-6 space-y-6">
+        <div>
+          <h3 class="text-base font-semibold text-white">Endpoint Endpoints Reference</h3>
+          <p class="text-xs text-slate-400 mt-1">Available Serverless and Streamable HTTP endpoints on this instance.</p>
+        </div>
+
+        <div class="space-y-3">
+          <div class="p-4 rounded-lg border border-slate-800 bg-slate-950 flex items-center justify-between">
+            <div class="space-y-1">
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400">POST</span>
+                <span class="font-mono text-xs text-white">/api/mcp</span>
+              </div>
+              <p class="text-xs text-slate-400">JSON-RPC 2.0 endpoint for MCP Client tools discovery and execution.</p>
+            </div>
+            <span class="text-xs text-slate-500 font-mono">Streamable HTTP</span>
+          </div>
+
+          <div class="p-4 rounded-lg border border-slate-800 bg-slate-950 flex items-center justify-between">
+            <div class="space-y-1">
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-bold px-2 py-0.5 rounded bg-blue-500/20 text-blue-400">POST</span>
+                <span class="font-mono text-xs text-white">/api/search</span>
+              </div>
+              <p class="text-xs text-slate-400">Programmatic REST retrieval with hybrid vector + BM25 and AST skeletonization.</p>
+            </div>
+            <span class="text-xs text-slate-500 font-mono">REST JSON</span>
+          </div>
+
+          <div class="p-4 rounded-lg border border-slate-800 bg-slate-950 flex items-center justify-between">
+            <div class="space-y-1">
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-bold px-2 py-0.5 rounded bg-purple-500/20 text-purple-400">GET</span>
+                <span class="font-mono text-xs text-white">/api/health</span>
+              </div>
+              <p class="text-xs text-slate-400">Instance health check reporting cloud readiness, storage adapter and server latency.</p>
+            </div>
+            <span class="text-xs text-slate-500 font-mono">Health Probe</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- BYOK Settings Modal -->
+  <div id="byok-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-xl max-w-lg w-full p-6 space-y-5 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div class="flex items-center gap-2 text-white font-semibold">
+          <i class="fa-solid fa-key text-indigo-400"></i>
+          <span>BYOK (Bring Your Own Key) Settings</span>
+        </div>
+        <button onclick="toggleConfigModal()" class="text-slate-400 hover:text-white">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <p class="text-xs text-slate-400">
+        You can test retrieval by passing custom API Keys directly from the browser. Keys are saved locally in your browser's <code class="text-indigo-300">localStorage</code> and never sent elsewhere.
+      </p>
+
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Embeddings API Key</label>
+          <input type="password" id="byok-emb-key" placeholder="sk-..." class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Embeddings Base URL</label>
+          <input type="text" id="byok-emb-base" placeholder="https://api.openai.com/v1" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-slate-300 mb-1">Rerank API Key</label>
+          <input type="password" id="byok-rerank-key" placeholder="sk-..." class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-2 border-t border-slate-800">
+        <button onclick="toggleConfigModal()" class="px-4 py-2 rounded text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 transition">Cancel</button>
+        <button onclick="saveByokSettings()" class="px-4 py-2 rounded text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-medium transition">Save Keys</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="border-t border-slate-900 py-6 text-center text-xs text-slate-600">
+    ACE (Awesome Context Engineering) — Cloud Serverless Semantic Code Retrieval
+  </footer>
+
+  <script>
+    const baseUrl = window.location.origin;
+
+    // Load initial health status
+    async function checkHealth() {
+      try {
+        const res = await fetch('/api/health');
+        if (!res.ok) throw new Error('Health check failed');
+        const data = await res.json();
+        
+        document.getElementById('status-text').textContent = 'Online';
+        document.getElementById('meta-cloud-ready').textContent = `Cloud Ready: ${data.cloudReady ? 'Yes' : 'No'}`;
+        document.getElementById('meta-storage').firstElementChild.textContent = data.storage.toUpperCase();
+      } catch (err) {
+        document.getElementById('status-text').textContent = 'Degraded';
+        document.getElementById('status-badge').className = 'flex items-center space-x-2 text-xs px-3 py-1.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20';
+      }
+    }
+
+    // Tab Switching
+    function switchTab(tab) {
+      ['playground', 'mcp-config', 'docs'].forEach(t => {
+        document.getElementById(`tab-${t}`).classList.toggle('hidden', t !== tab);
+        const btn = document.getElementById(`tab-btn-${t}`);
+        if (t === tab) {
+          btn.className = 'px-4 py-3 text-sm font-medium border-b-2 border-indigo-500 text-white flex items-center gap-2';
+          btn.querySelector('i').className = btn.querySelector('i').className.replace('text-slate-400', 'text-indigo-400');
+        } else {
+          btn.className = 'px-4 py-3 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2';
+        }
+      });
+    }
+
+    // Populate Dynamic MCP Snippets
+    function populateSnippets() {
+      const cursorJson = {
+        mcpServers: {
+          "ace-cloud": {
+            url: `${baseUrl}/api/mcp`
+          }
+        }
+      };
+      document.getElementById('cursor-config-code').textContent = JSON.stringify(cursorJson, null, 2);
+
+      const curlCmd = `curl -X POST ${baseUrl}/api/search \\
+  -H "Content-Type: application/json" \\
+  -d '{"query": "authentication flow", "repo_path": "default"}'`;
+      document.getElementById('curl-config-code').textContent = curlCmd;
+    }
+
+    // Execute Search
+    async function executeSearch() {
+      const query = document.getElementById('query-input').value.trim();
+      if (!query) return;
+
+      const btn = document.getElementById('search-btn');
+      const timeSpan = document.getElementById('search-time');
+      const resultsContainer = document.getElementById('results-container');
+      const outputContent = document.getElementById('output-content');
+      const resultsCount = document.getElementById('results-count');
+
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>Searching...</span>';
+      timeSpan.classList.add('hidden');
+
+      const startTime = performance.now();
+
+      const headers = { 'Content-Type': 'application/json' };
+      const embKey = localStorage.getItem('ace_emb_key');
+      const embBase = localStorage.getItem('ace_emb_base');
+      const rerankKey = localStorage.getItem('ace_rerank_key');
+
+      if (embKey) headers['x-embeddings-api-key'] = embKey;
+      if (embBase) headers['x-embeddings-base-url'] = embBase;
+      if (rerankKey) headers['x-rerank-api-key'] = rerankKey;
+
+      try {
+        const res = await fetch('/api/search', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            query,
+            repo_path: document.getElementById('repo-input').value.trim() || 'default',
+            response_mode: document.getElementById('mode-input').value,
+            cost_aware_ranking: document.getElementById('cost-aware-input').checked
+          })
+        });
+
+        const data = await res.json();
+        const duration = Math.round(performance.now() - startTime);
+
+        resultsContainer.classList.remove('hidden');
+        timeSpan.textContent = `Completed in ${duration}ms`;
+        timeSpan.classList.remove('hidden');
+
+        if (data.isError) {
+          resultsCount.textContent = 'Error';
+          resultsCount.className = 'px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 text-xs';
+          outputContent.textContent = data.content?.[0]?.text || JSON.stringify(data, null, 2);
+        } else {
+          resultsCount.textContent = 'Success';
+          resultsCount.className = 'px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-xs';
+          outputContent.textContent = data.content?.[0]?.text || JSON.stringify(data, null, 2);
+        }
+      } catch (err) {
+        resultsContainer.classList.remove('hidden');
+        resultsCount.textContent = 'Error';
+        resultsCount.className = 'px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-300 text-xs';
+        outputContent.textContent = `Request failed: ${err.message}`;
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-bolt"></i><span>Run Retrieval</span>';
+      }
+    }
+
+    function copyOutput() {
+      const text = document.getElementById('output-content').textContent;
+      navigator.clipboard.writeText(text);
+      alert('Output copied to clipboard!');
+    }
+
+    function copyText(elementId, btn) {
+      const text = document.getElementById(elementId).textContent;
+      navigator.clipboard.writeText(text);
+      const original = btn.innerHTML;
+      btn.innerHTML = '<i class="fa-solid fa-check text-emerald-400 mr-1"></i> Copied';
+      setTimeout(() => btn.innerHTML = original, 2000);
+    }
+
+    // Modal
+    function toggleConfigModal() {
+      const modal = document.getElementById('byok-modal');
+      modal.classList.toggle('hidden');
+      if (!modal.classList.contains('hidden')) {
+        document.getElementById('byok-emb-key').value = localStorage.getItem('ace_emb_key') || '';
+        document.getElementById('byok-emb-base').value = localStorage.getItem('ace_emb_base') || '';
+        document.getElementById('byok-rerank-key').value = localStorage.getItem('ace_rerank_key') || '';
+      }
+    }
+
+    function saveByokSettings() {
+      const embKey = document.getElementById('byok-emb-key').value.trim();
+      const embBase = document.getElementById('byok-emb-base').value.trim();
+      const rerankKey = document.getElementById('byok-rerank-key').value.trim();
+
+      if (embKey) localStorage.setItem('ace_emb_key', embKey); else localStorage.removeItem('ace_emb_key');
+      if (embBase) localStorage.setItem('ace_emb_base', embBase); else localStorage.removeItem('ace_emb_base');
+      if (rerankKey) localStorage.setItem('ace_rerank_key', rerankKey); else localStorage.removeItem('ace_rerank_key');
+
+      toggleConfigModal();
+      alert('BYOK Settings saved in browser!');
+    }
+
+    // Init
+    checkHealth();
+    populateSnippets();
+  </script>
+</body>
+</html>

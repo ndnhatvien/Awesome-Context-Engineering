@@ -27,7 +27,7 @@ function createMockReqRes(options: {
   req.method = options.method || 'GET';
   req.url = options.url || '/';
   req.body = options.body;
-  req.headers = { host: 'localhost' };
+  req.headers = { host: 'localhost', ...(options.headers || {}) };
 
   let statusCode = 200;
   const headers: Record<string, string> = {};
@@ -128,6 +128,7 @@ test('SupabaseVectorStore: 记录转换与距离计算', async () => {
 // ===========================================
 
 test('Vercel API: /api/health 返回健康状态与 cloudReady 标识', async () => {
+  // 1. JSON probe
   const { req, res } = createMockReqRes({ method: 'GET', url: '/api/health' });
   await healthHandler(req, res);
 
@@ -136,6 +137,18 @@ test('Vercel API: /api/health 返回健康状态与 cloudReady 标识', async ()
   assert.equal(res.json.cloudReady, true);
   assert.ok(res.json.storage);
   assert.ok(res.json.version);
+
+  // 2. Browser HTML dashboard
+  const { req: htmlReq, res: htmlRes } = createMockReqRes({
+    method: 'GET',
+    url: '/',
+    headers: { accept: 'text/html,application/xhtml+xml' },
+  });
+  await healthHandler(htmlReq, htmlRes);
+  assert.equal(htmlRes.statusCode, 200);
+  assert.ok(htmlRes.getHeader('content-type')?.includes('text/html'));
+  assert.ok(htmlRes.data.includes('ACE Engine'));
+  assert.ok(htmlRes.data.includes('Retrieval Playground'));
 });
 
 test('Vercel API: /api/mcp 支持 OPTIONS 与 GET 工具发现', async () => {

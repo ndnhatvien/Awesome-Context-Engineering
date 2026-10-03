@@ -29,6 +29,9 @@
       "dest": "/api/health.ts"
     },
     {
+      "handle": "filesystem"
+    },
+    {
       "src": "/(.*)",
       "dest": "/api/health.ts"
     }
