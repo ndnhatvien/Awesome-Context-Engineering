@@ -9,6 +9,8 @@
 
 import fs from 'node:fs';
 import * as lancedb from '@lancedb/lancedb';
+import { SupabaseVectorStore } from '../cloud/supabase/index.js';
+import { getSupabaseConfig, isSupabaseMode } from '../config.js';
 import { getProjectDataDir, getProjectVectorDir } from '../utils/paths.js';
 
 // ===========================================
@@ -412,14 +414,30 @@ export class VectorStore {
 // 工厂函数
 // ===========================================
 
-const vectorStores = new Map<string, VectorStore>();
+export type VectorStoreInstance = VectorStore | SupabaseVectorStore;
+export type AnyVectorStore = VectorStoreInstance;
+
+const vectorStores = new Map<string, VectorStoreInstance>();
 
 /**
- * 获取或创建 VectorStore 实例
+ * 获取或创建 VectorStore 实例（支持本地 LanceDB 或云端 Supabase pgvector）
  */
-export async function getVectorStore(projectId: string, vectorDim = 1024): Promise<VectorStore> {
+export async function getVectorStore(
+  projectId: string,
+  vectorDim = 1024,
+): Promise<VectorStoreInstance> {
   let store = vectorStores.get(projectId);
   if (!store) {
+    if (isSupabaseMode()) {
+      const supaConfig = getSupabaseConfig();
+      if (supaConfig) {
+        const cloudStore = new SupabaseVectorStore(projectId, supaConfig);
+        await cloudStore.init();
+        vectorStores.set(projectId, cloudStore);
+        return cloudStore;
+      }
+    }
+
     store = new VectorStore(projectId, vectorDim);
     await store.init();
     vectorStores.set(projectId, store);

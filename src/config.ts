@@ -631,4 +631,44 @@ export function getMcpHeartbeatIntervalMs(): number {
   return 15_000;
 }
 
+export interface SupabaseEnvConfig {
+  url: string;
+  key: string;
+  schema?: string;
+  tableName?: string;
+}
+
+/**
+ * 获取 Supabase 配置（用于 Vercel / Cloud 部署）
+ */
+export function getSupabaseConfig(): SupabaseEnvConfig | null {
+  const url = process.env.SUPABASE_URL;
+  const key =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_ANON_KEY ||
+    process.env.SUPABASE_KEY;
+
+  if (!url || !key) return null;
+
+  return {
+    url: url.replace(/\/+$/, ''),
+    key,
+    schema: process.env.SUPABASE_SCHEMA || 'public',
+    tableName: process.env.SUPABASE_TABLE_NAME || 'code_chunks',
+  };
+}
+
+/**
+ * 判断当前是否处于 Supabase 云端存储模式
+ */
+export function isSupabaseMode(): boolean {
+  if (process.env.ACE_STORAGE_MODE === 'supabase') return true;
+  return Boolean(
+    process.env.SUPABASE_URL &&
+      (process.env.SUPABASE_SERVICE_ROLE_KEY ||
+        process.env.SUPABASE_ANON_KEY ||
+        process.env.SUPABASE_KEY),
+  );
+}
+
 export { isDev };

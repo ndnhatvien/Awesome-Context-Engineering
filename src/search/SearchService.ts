@@ -18,7 +18,11 @@ import { applyGeneratedFilePenalty } from '../scanner/generatedFiles.js';
 import { getLanguage } from '../scanner/language.js';
 import { isDebugEnabled, logger } from '../utils/logger.js';
 import type { SearchResult as VectorSearchResult } from '../vectorStore/index.js';
-import { closeVectorStore, getVectorStore, type VectorStore } from '../vectorStore/index.js';
+import {
+  closeVectorStore,
+  getVectorStore,
+  type VectorStoreInstance,
+} from '../vectorStore/index.js';
 import { ContextPacker } from './ContextPacker.js';
 import { DEFAULT_CONFIG } from './config.js';
 import { applyCostModelRanking } from './costModelRanking.js';
@@ -140,7 +144,7 @@ export class SearchService {
   >();
   private projectId: string;
   private indexer: Indexer | null = null;
-  private vectorStore: VectorStore | null = null;
+  private vectorStore: VectorStoreInstance | null = null;
   private db: Database.Database | null = null;
   private config: SearchConfig;
   private arcCache: AdaptiveReplacementCache<string, ContextPack>;

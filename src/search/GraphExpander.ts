@@ -11,7 +11,11 @@ import type Database from 'better-sqlite3';
 import { getEmbeddingConfig } from '../config.js';
 import { initDb } from '../db/index.js';
 import { logger } from '../utils/logger.js';
-import { type ChunkRecord, getVectorStore, type VectorStore } from '../vectorStore/index.js';
+import {
+  type ChunkRecord,
+  getVectorStore,
+  type VectorStoreInstance,
+} from '../vectorStore/index.js';
 import { createResolvers, type ImportResolver } from './resolvers/index.js';
 import type { ScoredChunk, SearchConfig } from './types.js';
 
@@ -37,7 +41,7 @@ interface ExpandResult {
 export class GraphExpander {
   private projectId: string;
   private config: SearchConfig;
-  private vectorStore: VectorStore | null = null;
+  private vectorStore: VectorStoreInstance | null = null;
   private db: Database.Database | null = null;
 
   // 缓存所有文件路径 (用于快速查找和模糊匹配)

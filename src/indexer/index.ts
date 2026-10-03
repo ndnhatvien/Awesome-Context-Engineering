@@ -25,7 +25,7 @@ import {
   type ChunkRecord,
   getVectorStore,
   VectorStore,
-  type VectorStore as VectorStoreInstance,
+  type VectorStoreInstance,
 } from '../vectorStore/index.js';
 
 // ===========================================
