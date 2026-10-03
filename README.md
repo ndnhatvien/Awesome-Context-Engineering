@@ -10,6 +10,7 @@
 
 ## 📖 Mục lục
 - [🚀 Bắt đầu nhanh](#-bắt-đầu-nhanh)
+- [☁️ Triển khai Vercel + Supabase & Web Dashboard](#️-triển-khai-vercel--supabase--web-dashboard)
 - [✨ Tính năng chính](#-tính-năng-chính)
 - [🛠️ Lệnh CLI](#️-lệnh-cli)
 - [🔌 Tích hợp Model Context Protocol (MCP)](#-tích-hợp-model-context-protocol-mcp)
@@ -72,6 +73,48 @@ ace mcp-http --port 3000
 
 ---
 
+## ☁️ Triển khai Vercel + Supabase & Web Dashboard
+
+ACE hỗ trợ kiến trúc **Cloud Serverless** hoàn chỉnh trên **Vercel** kết hợp **Supabase PostgreSQL (`pgvector`)**, đi kèm **Giao diện Web Dashboard trực quan** và **Playground** ngay trên trình duyệt.
+
+### 🌟 Điểm nổi bật trên Cloud
+- **Interactive Web Dashboard & Playground**: Truy cập trực tiếp URL Vercel trên trình duyệt (`https://your-ace.vercel.app`) để thử nghiệm tìm kiếm ngữ nghĩa theo 3 mode (`overview`, `skeleton`, `raw`), xem token savings và độ liên quan.
+- **BYOK (Bring Your Own Key) Settings**: Nhập API Keys và Models trực tiếp từ trình duyệt hoặc truyền qua headers (`x-embeddings-api-key`, `x-embeddings-model`, `x-rerank-api-key`, `x-rerank-model`). Hỗ trợ Presets 1-click cho **SiliconFlow**, **OpenAI + Cohere**, **Jina AI**.
+- **Remote Streamable HTTP MCP Server**: Endpoint `/api/mcp` tương thích hoàn toàn với Cursor, Windsurf, Claude Desktop và Antigravity. Tích hợp keep-alive heartbeat chống timeout 300s.
+- **Zero-Dependency Supabase Client**: Sử dụng PostgREST client thuần với native `fetch`, tương thích 100% với Vercel Serverless/Edge Runtime.
+
+### 🚀 Hướng dẫn triển khai nhanh (3 bước)
+Chi tiết từng bước có tại [docs/DEPLOYMENT_VERCEL_SUPABASE.md](docs/DEPLOYMENT_VERCEL_SUPABASE.md).
+
+#### 1. Khởi tạo CSDL Supabase
+1. Vào [Supabase Dashboard](https://supabase.com/dashboard) ➔ Tạo Project mới.
+2. Mở **SQL Editor** ➔ Chạy file script [`supabase/migrations/20261003_init_ace_schema.sql`](supabase/migrations/20261003_init_ace_schema.sql) để kích hoạt `pgvector`, `pg_trgm`, tạo các bảng `code_chunks`, `agent_memories`, `token_savings_ledger`.
+3. Lấy `Project URL` và `service_role secret key` từ **Project Settings ➔ API**.
+
+#### 2. Deploy lên Vercel
+1. Truy cập [Vercel](https://vercel.com/dashboard) ➔ Import repository `Awesome-Context-Engineering`.
+2. Trong phần **Environment Variables**, cấu hình:
+   ```env
+   SUPABASE_URL=https://your-project.supabase.co
+   SUPABASE_SERVICE_ROLE_KEY=eyJh...
+   ```
+   *(Các biến `EMBEDDINGS_*` và `RERANK_*` có thể điền trước hoặc cấu hình sau trong Dashboard / BYOK Settings).*
+3. Nhấn **Deploy**.
+
+#### 3. Kết nối với Cursor / Claude Desktop
+Sau khi deploy xong, mở URL Vercel trên trình duyệt, chuyển sang tab **MCP Client Setup** và copy cấu hình:
+```json
+{
+  "mcpServers": {
+    "ace-cloud": {
+      "url": "https://your-ace-app.vercel.app/api/mcp"
+    }
+  }
+}
+```
+
+---
+
 ## ✨ Tính năng chính
 
 ### 🔍 1. Hybrid Retrieval & RRF Fusion
@@ -85,7 +128,7 @@ Sử dụng **Tree-sitter** để parse file thành các semantic nodes cho 12+ 
 - **E2 (Breadcrumbs)**: Khôi phục parent context scopes (namespace, class declarations)
 - **E3 (Import Resolution)**: Parse dependencies và references qua TypeScript, Python, Go, Rust, Java, Kotlin, PHP, Ruby, Swift, Dart, C/C++
 
-### 🎯 4. Impact Graph Analysis **[NEW]**
+### 🎯 4. Impact Graph Analysis
 Phân tích ảnh hưởng của code changes với dependency graph:
 - **Upstream Impact**: Tìm các functions/modules bị ảnh hưởng khi thay đổi một symbol
 - **Downstream Dependencies**: Trace dependencies của một function
@@ -111,6 +154,22 @@ Ngăn chặn low-score results tràn vào context:
 - **Delta Guard**: Tránh outlier Top1 scenarios
 - **Safe Harbor**: Đảm bảo minimum recall
 - **Hard Cap**: Token budget protection
+
+### ⚡ 8. AST Progressive Skeletonizer & Token Savings Ledger **[NEW]**
+- Nén code blocks lũy tiến bằng cách gập (fold) thân hàm/method thành placeholder `// ... expand-chunk <file> <start> <end>`, giữ nguyên chữ ký (signature) và comment.
+- Giúp AI Agent đọc hiểu toàn bộ cấu trúc dự án và **tiết kiệm tới 89% Token**.
+- Tự động ghi chép chi phí và token tiết kiệm được vào bảng `token_savings_ledger`.
+
+### 🧠 9. Persistent 4-Layer Agent Memory (Mnemosyne-inspired) **[NEW]**
+Lưu trữ và đồng bộ hóa tri thức giữa các phiên làm việc của AI Agent theo 4 nhóm:
+- `failures`: Các lỗi từng gặp phải để phòng tránh lặp lại.
+- `constraints`: Ràng buộc kiến trúc bắt buộc (ví dụ: cấm đọc trực tiếp `process.env`).
+- `strategies`: Chiến lược triển khai tối ưu đã được chứng minh hiệu quả.
+- `decisions`: Lý do đưa ra quyết định kỹ thuật quan trọng.
+
+### ☁️ 10. Dual Storage Engine (LanceDB + Supabase pgvector) **[NEW]**
+- **Local Mode**: LanceDB + SQLite (nhanh, nhẹ, không phụ thuộc mạng).
+- **Cloud Mode**: Supabase PostgreSQL 15+ (`pgvector` & `pg_trgm`) cho môi trường serverless và đội nhóm đa thiết bị. Tự động chuyển đổi mượt mà dựa trên biến môi trường.
 
 ---
 
@@ -150,17 +209,29 @@ Thêm cấu hình sau:
 
 ### MCP Tools có sẵn
 
-1. **`codebase-retrieval`**: Semantic search qua codebase
-   - Hybrid search (vector + lexical)
-   - Smart context expansion (E1/E2/E3)
-   - Token-aware packing
+1. **`codebase-retrieval`**: Semantic retrieval qua codebase
+   - Hybrid search (Vector + Lexical BM25) với RRF Fusion
+   - Smart context expansion (E1/E2/E3) & Value-per-token density ranking
+   - 3 Chế độ phản hồi: `overview` (tóm tắt gói gọn), `skeleton` (AST folding nén -89% token), `raw` (code thô)
 
-2. **`codebase-impact`** **[NEW]**: Impact graph analysis
-   - Analyze upstream/downstream dependencies
-   - Calculate change impact scores
-   - Identify affected modules
+2. **`expand-chunk`**: Mở rộng code chi tiết theo nhu cầu
+   - Lấy toàn bộ đoạn mã nguyên bản theo khoảng dòng (`file_path`, `start_line`, `end_line`)
+   - Tự động kiểm tra an toàn đường dẫn và ngăn chặn path traversal
 
-3. **`file-retrieval`**: Đọc và lấy nội dung file
+3. **`agent-memory`**: Bộ nhớ dài hạn cho AI Agent (Mnemosyne Architecture)
+   - Lưu trữ và truy vấn tri thức bền vững: `record`, `query`, `working-context`
+   - Phân loại theo 4 danh mục: `failure`, `constraint`, `strategy`, `decision`
+
+4. **`generate-commit-message`**: Tự động tạo Commit Message
+   - Đọc git diff của working tree hoặc staged changes
+   - Sinh thông điệp chuẩn Conventional Commits (feat, fix, refactor, v.v.)
+
+5. **`codebase-impact`**: Phân tích đồ thị ảnh hưởng
+   - Khảo sát các module/function bị ảnh hưởng (upstream & downstream)
+   - Tính toán Change Impact Score dựa trên coupling và fan-out
+
+6. **`detect-tasks`**: Tự động bóc tách tác vụ
+   - Phân tích nhiệm vụ phức tạp thành danh sách subtasks có thứ tự phụ thuộc rõ ràng
 
 ### MCP HTTP Server & Agent Routes **[NEW]**
 
@@ -246,6 +317,13 @@ src/
 ## 🔧 Cấu hình & Biến môi trường
 
 File cấu hình: `~/.ace/.env`
+
+### Cloud Storage (Supabase pgvector)
+```env
+# Kích hoạt Cloud Mode (tùy chọn, để trống sẽ dùng local LanceDB + SQLite)
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=eyJh...
+```
 
 ### Embedding Configuration
 ```env
