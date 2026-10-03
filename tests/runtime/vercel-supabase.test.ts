@@ -199,3 +199,19 @@ test('Supabase Migration: SQL 脚本包含必要表与 pgvector 扩展', () => {
   assert.ok(content.includes('FUNCTION public.match_code_chunks'));
   assert.ok(content.includes('FUNCTION public.hybrid_search_chunks'));
 });
+
+test('Request Overrides: 支持从 Headers 动态覆盖 Embedding & Reranker 凭据', async () => {
+  const { applyRequestOverrides } = await import('../../src/cloud/overrides.js');
+  const customHeaders = {
+    'x-embeddings-api-key': 'sk-dynamic-embedding-key',
+    'x-embeddings-base-url': 'https://custom-embedding.api/v1',
+    'x-rerank-api-key': 'sk-dynamic-rerank-key',
+  };
+
+  applyRequestOverrides(customHeaders);
+
+  assert.equal(process.env.EMBEDDINGS_API_KEY, 'sk-dynamic-embedding-key');
+  assert.equal(process.env.EMBEDDINGS_BASE_URL, 'https://custom-embedding.api/v1');
+  assert.equal(process.env.RERANK_API_KEY, 'sk-dynamic-rerank-key');
+});
+

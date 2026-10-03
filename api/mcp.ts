@@ -8,6 +8,7 @@ import {
   handleExpandChunk,
   handleGenerateCommitMessage,
 } from '../src/mcp/tools/index.js';
+import { applyRequestOverrides } from '../src/cloud/overrides.js';
 import { logger } from '../src/utils/logger.js';
 
 interface JsonRpcRequest {
@@ -111,7 +112,10 @@ export default async function handler(
   // CORS Headers
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, apikey');
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'Content-Type, Authorization, apikey, x-embeddings-api-key, x-embeddings-base-url, x-embeddings-model, x-embeddings-dimensions, x-rerank-api-key, x-rerank-base-url, x-rerank-model, x-supabase-url, x-supabase-key, x-supabase-service-role-key',
+  );
 
   if (req.method === 'OPTIONS') {
     res.statusCode = 204;
@@ -180,6 +184,9 @@ export default async function handler(
       if (method === 'tools/call') {
         const toolName = params?.name;
         const toolArgs = params?.arguments ?? {};
+
+        // 允许从 Headers 或 Tool Arguments 动态覆盖 API Keys
+        applyRequestOverrides(req.headers, toolArgs);
 
         let toolResult: { content: Array<{ type: 'text'; text: string }>; isError?: boolean };
 

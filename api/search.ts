@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import '../src/config.js';
+import { applyRequestOverrides } from '../src/cloud/overrides.js';
 import { handleCodebaseRetrieval } from '../src/mcp/tools/codebaseRetrieval.js';
 import { logger } from '../src/utils/logger.js';
 
@@ -24,7 +25,10 @@ export default async function handler(
   // CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, apikey');
+  res.setHeader(
+    'Access-Control-Allow-Headers',
+    'Content-Type, Authorization, apikey, x-embeddings-api-key, x-embeddings-base-url, x-embeddings-model, x-embeddings-dimensions, x-rerank-api-key, x-rerank-base-url, x-rerank-model, x-supabase-url, x-supabase-key, x-supabase-service-role-key',
+  );
 
   if (req.method === 'OPTIONS') {
     res.statusCode = 204;
@@ -47,6 +51,8 @@ export default async function handler(
       const raw = await readBody(req);
       payload = raw ? JSON.parse(raw) : {};
     }
+
+    applyRequestOverrides(req.headers, payload);
 
     const query =
       (payload.information_request as string) || (payload.query as string) || (payload.q as string);
