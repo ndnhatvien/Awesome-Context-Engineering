@@ -7,7 +7,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import cac from 'cac';
 import { DEFAULT_ENV_TEMPLATE } from './config.js';
-import { generateProjectId } from './db/index.js';
+import { generateProjectId, initDb } from './db/index.js';
+import { SavingsLedger } from './ledger/index.js';
+import { type MemoryCategory, MemoryService, setupClaudeCodeHooks } from './memory/index.js';
+import { setupAgentPlugin } from './plugin/index.js';
 import { type ScanStats, scan } from './scanner/index.js';
 import {
   inspectChunkIndexConsistency,
@@ -29,50 +32,63 @@ if (process.argv.includes('-v') || process.argv.includes('--version')) {
   process.exit(0);
 }
 
-cli.command('init', '初始化 ACE 配置').action(async () => {
-  const configDir = getConfigBaseDir();
-  const envFile = path.join(configDir, '.env');
+cli
+  .command('init', '初始化 ACE 配置')
+  .option('--plugin', '同时生成遵循 Agent Plugins v1.0.0 规范的便携插件目录 (.ace/plugin/)')
+  .option('--plugin-dir <dir>', '指定 Agent Plugin 输出目录')
+  .action(async (options: { plugin?: boolean; pluginDir?: string } = {}) => {
+    const configDir = getConfigBaseDir();
+    const envFile = path.join(configDir, '.env');
 
-  logger.info('开始初始化 ACE...');
+    logger.info('开始初始化 ACE...');
 
-  // 创建配置目录
-  try {
-    await fs.mkdir(configDir, { recursive: true });
-    logger.info(`创建配置目录: ${configDir}`);
-  } catch (err) {
-    const error = err as { code?: string; message?: string; stack?: string };
-    if (error.code !== 'EEXIST') {
-      logger.error({ err, stack: error.stack }, `创建配置目录失败: ${error.message}`);
+    if (options.plugin) {
+      setupAgentPlugin({
+        projectPath: process.cwd(),
+        pluginDir: options.pluginDir,
+        version: pkg.version,
+      });
+      console.log('✅ Agent Plugin (v1.0.0) 生成成功: .ace/plugin/');
+    }
+
+    // 创建配置目录
+    try {
+      await fs.mkdir(configDir, { recursive: true });
+      logger.info(`创建配置目录: ${configDir}`);
+    } catch (err) {
+      const error = err as { code?: string; message?: string; stack?: string };
+      if (error.code !== 'EEXIST') {
+        logger.error({ err, stack: error.stack }, `创建配置目录失败: ${error.message}`);
+        process.exit(1);
+      }
+      logger.info(`配置目录已存在: ${configDir}`);
+    }
+
+    // 检查是否已存在 .env 文件
+    try {
+      await fs.access(envFile);
+      logger.warn(`.env 文件已存在: ${envFile}`);
+      logger.info('初始化完成！');
+      return;
+    } catch {
+      // 文件不存在，继续创建
+    }
+
+    // 写入默认 .env 配置
+    try {
+      await fs.writeFile(envFile, DEFAULT_ENV_TEMPLATE);
+      logger.info(`创建 .env 文件: ${envFile}`);
+    } catch (err) {
+      const error = err as { message?: string; stack?: string };
+      logger.error({ err, stack: error.stack }, `创建 .env 文件失败: ${error.message}`);
       process.exit(1);
     }
-    logger.info(`配置目录已存在: ${configDir}`);
-  }
 
-  // 检查是否已存在 .env 文件
-  try {
-    await fs.access(envFile);
-    logger.warn(`.env 文件已存在: ${envFile}`);
+    logger.info('下一步操作:');
+    logger.info(`   1. 编辑配置文件: ${envFile}`);
+    logger.info('   2. 填写你的 API Key 和其他配置');
     logger.info('初始化完成！');
-    return;
-  } catch {
-    // 文件不存在，继续创建
-  }
-
-  // 写入默认 .env 配置
-  try {
-    await fs.writeFile(envFile, DEFAULT_ENV_TEMPLATE);
-    logger.info(`创建 .env 文件: ${envFile}`);
-  } catch (err) {
-    const error = err as { message?: string; stack?: string };
-    logger.error({ err, stack: error.stack }, `创建 .env 文件失败: ${error.message}`);
-    process.exit(1);
-  }
-
-  logger.info('下一步操作:');
-  logger.info(`   1. 编辑配置文件: ${envFile}`);
-  logger.info('   2. 填写你的 API Key 和其他配置');
-  logger.info('初始化完成！');
-});
+  });
 
 cli
   .command('index [path]', '扫描代码库并建立索引')
@@ -759,6 +775,173 @@ cli
         const error = err as { message?: string; stack?: string };
         logger.error({ err, stack: error.stack }, `查找受影响目标失败: ${error.message}`);
         process.exit(1);
+      }
+    },
+  );
+
+cli
+  .command(
+    'memory [action] [targetPath]',
+    'Agent 四层记忆与上下文引擎 (list | add | compile | setup-hooks)',
+  )
+  .option('--task <task>', '当前任务目标，用于编译 working context')
+  .option('--category <category>', '记忆类别 (failure | strategy | constraint | decision)')
+  .option('--title <title>', '记忆标题')
+  .option('--content <content>', '记忆内容详情')
+  .option('--files <files>', '关联文件路径（逗号分隔）')
+  .option('--tags <tags>', '标签（逗号分隔）')
+  .option('--max-chars <chars>', '上下文最大字符预算', { default: 6000 })
+  .option('--json', 'JSON 格式输出')
+  .action(
+    async (
+      action = 'list',
+      targetPath = '.',
+      options: {
+        task?: string;
+        category?: string;
+        title?: string;
+        content?: string;
+        files?: string;
+        tags?: string;
+        maxChars?: number;
+        json?: boolean;
+      } = {},
+    ) => {
+      try {
+        const repoPath = path.resolve(targetPath);
+        const projectId = generateProjectId(repoPath);
+
+        if (action === 'setup-hooks') {
+          const res = setupClaudeCodeHooks(repoPath);
+          if (options.json) {
+            process.stdout.write(`${JSON.stringify(res, null, 2)}\n`);
+          } else {
+            console.log('\n✅ Claude Code native hooks 已配置完成:');
+            for (const f of res.createdFiles) {
+              console.log(`  - ${f}`);
+            }
+            console.log(
+              '\n提示: 在 Claude Code 中执行 `/hooks` 批准 SessionStart hook 即可自动注入记忆上下文。\n',
+            );
+          }
+          return;
+        }
+
+        const db = initDb(projectId);
+        try {
+          const memoryService = new MemoryService(db);
+
+          if (action === 'add') {
+            if (!options.category || !options.title || !options.content) {
+              console.error('❌ 添加记忆需要指定 --category, --title 和 --content');
+              process.exit(1);
+            }
+            const targetFiles = options.files ? options.files.split(',').map((f) => f.trim()) : [];
+            const tags = options.tags ? options.tags.split(',').map((t) => t.trim()) : [];
+
+            const item = memoryService.recordMemory({
+              category: options.category as MemoryCategory,
+              title: options.title,
+              content: options.content,
+              targetFiles,
+              tags,
+            });
+
+            if (options.json) {
+              process.stdout.write(`${JSON.stringify(item, null, 2)}\n`);
+            } else {
+              console.log(
+                `\n✅ 成功记录 ${item.category.toUpperCase()} 记忆: "${item.title}" (ID: ${item.id})\n`,
+              );
+            }
+          } else if (action === 'compile') {
+            const targetFiles = options.files ? options.files.split(',').map((f) => f.trim()) : [];
+            const compiled = memoryService.compileWorkingContext({
+              task: options.task,
+              targetFiles,
+              maxChars: options.maxChars ? Number(options.maxChars) : 6000,
+            });
+
+            if (options.json) {
+              process.stdout.write(`${JSON.stringify(compiled, null, 2)}\n`);
+            } else {
+              console.log(`\n${compiled.markdown}\n`);
+            }
+          } else {
+            // list
+            const memories = memoryService.listMemories(
+              options.category ? (options.category as MemoryCategory) : undefined,
+            );
+            if (options.json) {
+              process.stdout.write(`${JSON.stringify(memories, null, 2)}\n`);
+            } else {
+              console.log(`\n━━━━ Agent Memory [${memories.length} items] ━━━━\n`);
+              if (memories.length === 0) {
+                console.log('暂无记忆条目。可使用 "ace memory add" 记录经验与规则。');
+              } else {
+                for (const m of memories) {
+                  const icon =
+                    m.category === 'failure'
+                      ? '❌'
+                      : m.category === 'strategy'
+                        ? '💡'
+                        : m.category === 'constraint'
+                          ? '🛡️'
+                          : '📝';
+                  const fileHint = m.targetFiles.length > 0 ? ` [${m.targetFiles.join(', ')}]` : '';
+                  console.log(`${icon} [${m.category.toUpperCase()}] ${m.title}${fileHint}`);
+                  console.log(`   ${m.content}`);
+                }
+              }
+              console.log('');
+            }
+          }
+        } finally {
+          db.close();
+        }
+      } catch (err) {
+        const error = err as { message?: string; stack?: string };
+        logger.error({ err, stack: error.stack }, `Agent Memory 操作失败: ${error.message}`);
+        process.exit(1);
+      }
+    },
+  );
+
+cli
+  .command('savings [path]', '查看 Token 节约账本与多模型成本估算 (CCE Engine)')
+  .option('--all', '查看所有已记录项目的汇总节约')
+  .option('--days <number>', '统计天数 (默认 30 天)', { default: 30 })
+  .option('--model <name>', '计算成本的模型 (默认 claude-3-5-sonnet)', {
+    default: 'claude-3-5-sonnet',
+  })
+  .option('--json', '以 JSON 格式输出原始统计数据')
+  .action(
+    async (
+      targetPath: string | undefined,
+      options: {
+        all?: boolean;
+        days?: number;
+        model?: string;
+        json?: boolean;
+      },
+    ) => {
+      const rootPath = targetPath ? path.resolve(targetPath) : process.cwd();
+      const projectId = options.all ? undefined : generateProjectId(rootPath);
+      const db = initDb(projectId || generateProjectId(rootPath));
+      try {
+        const ledger = new SavingsLedger(db);
+        const summary = ledger.getSummary(projectId, Number(options.days) || 30);
+        if (options.json) {
+          process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
+        } else {
+          const report = SavingsLedger.formatTerminalReport(
+            summary,
+            options.model || 'claude-3-5-sonnet',
+          );
+          console.log(report);
+        }
+      } finally {
+        db.close();
       }
     },
   );

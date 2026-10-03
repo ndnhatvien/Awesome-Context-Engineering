@@ -265,6 +265,7 @@ class SessionManager {
     this.cleanupInterval = setInterval(() => {
       this.cleanupExpiredSessions();
     }, 60 * 1000); // Every minute
+    this.cleanupInterval.unref?.();
   }
 
   /**
@@ -274,6 +275,7 @@ class SessionManager {
     this.heartbeatInterval = setInterval(() => {
       this.sendHeartbeat();
     }, this.HEARTBEAT_INTERVAL);
+    this.heartbeatInterval.unref?.();
   }
 
   /**

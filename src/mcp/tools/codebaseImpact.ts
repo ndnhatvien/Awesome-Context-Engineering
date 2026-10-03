@@ -63,7 +63,9 @@ export async function handleCodebaseImpact(
           if (resolved.notFound) {
             lines.push(`- ❌ ${resolved.input} (not found)`);
           } else {
-            lines.push(`- ✓ ${resolved.input} → ${resolved.filePath}${resolved.kind !== 'file' ? `:${resolved.kind}` : ''}`);
+            lines.push(
+              `- ✓ ${resolved.input} → ${resolved.filePath}${resolved.kind !== 'file' ? `:${resolved.kind}` : ''}`,
+            );
           }
         }
         lines.push('');
@@ -102,7 +104,9 @@ export async function handleCodebaseImpact(
         lines.push(`## Affected Files (${result.affectedFiles.length})`);
         lines.push('');
         for (const file of result.affectedFiles.slice(0, 30)) {
-          lines.push(`- \`${file.filePath}\` (score: ${file.score.toFixed(3)}, depth: ${file.depth})`);
+          lines.push(
+            `- \`${file.filePath}\` (score: ${file.score.toFixed(3)}, depth: ${file.depth})`,
+          );
         }
         lines.push('');
       }
@@ -121,12 +125,18 @@ ${impactPath.path.join(' → ')}
       }
 
       // Summary
-      if (result.directTests.length === 0 && result.indirectTests.length === 0 && result.affectedFiles.length === 0) {
+      if (
+        result.directTests.length === 0 &&
+        result.indirectTests.length === 0 &&
+        result.affectedFiles.length === 0
+      ) {
         lines.push('## Summary');
         lines.push('');
         lines.push('No affected tests or files found.');
         lines.push('');
-        lines.push('💡 **Tip**: The impact graph may not be indexed yet. Run `ace index` to build the graph.');
+        lines.push(
+          '💡 **Tip**: The impact graph may not be indexed yet. Run `ace index` to build the graph.',
+        );
         lines.push('');
       }
 

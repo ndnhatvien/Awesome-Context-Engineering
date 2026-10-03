@@ -533,7 +533,7 @@ export class Indexer {
                 result.relPath,
                 result.hash,
                 result.language,
-                result.source,
+                result.content ?? '',
               );
               if (success) {
                 graphIndexed++;
@@ -556,7 +556,10 @@ export class Indexer {
         }
       } catch (err) {
         // Graph extraction errors are logged but don't fail the indexing pipeline
-        logger.debug({ file: result.relPath, error: (err as Error).message }, 'Graph indexing error (ignored)');
+        logger.debug(
+          { file: result.relPath, error: (err as Error).message },
+          'Graph indexing error (ignored)',
+        );
         graphErrors++;
       }
     }

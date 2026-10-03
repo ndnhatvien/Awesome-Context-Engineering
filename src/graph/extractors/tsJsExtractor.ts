@@ -286,7 +286,12 @@ function extractMethods(
         });
 
         // Contains edge: class -> method
-        const classId = makeSymbolNodeId(filePath, className, child.startPosition.row + 1, child.endPosition.row + 1);
+        const classId = makeSymbolNodeId(
+          filePath,
+          className,
+          child.startPosition.row + 1,
+          child.endPosition.row + 1,
+        );
         edges.push({
           id: `${classId}->${methodId}`,
           fromId: classId,

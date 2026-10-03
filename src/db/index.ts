@@ -3,6 +3,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import Database from 'better-sqlite3';
 import { initGraphTables } from '../graph/schema.js';
+import { initSavingsTables } from '../ledger/schema.js';
+import { initMemoryTables } from '../memory/schema.js';
 import { ensureFeedbackTables } from '../search/feedbackLoop.js';
 import {
   batchDeleteFileFts,
@@ -130,6 +132,12 @@ export function initDb(projectId: string): Database.Database {
 
   // 初始化 Impact Graph 表（MVP）
   initGraphTables(db);
+
+  // 初始化 Agent 4-Layer Memory 表
+  initMemoryTables(db);
+
+  // 初始化 Token Savings Ledger 表 (CCE Engine)
+  initSavingsTables(db);
 
   return db;
 }

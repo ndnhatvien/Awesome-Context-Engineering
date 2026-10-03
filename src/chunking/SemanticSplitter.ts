@@ -8,6 +8,7 @@
  * 4. SourceAdapter - 统一索引域适配（UTF-16/UTF-8）
  */
 import type Parser from 'tree-sitter';
+import { SecretScrubber } from '../security/SecretScrubber.js';
 import { getLanguageSpec, type LanguageSpecConfig } from './LanguageSpec.js';
 import { SourceAdapter } from './SourceAdapter.js';
 import type { ChunkMetadata, ProcessedChunk, SplitterConfig, Window } from './types.js';
@@ -469,9 +470,12 @@ export class SemanticSplitter {
         contextPath: w.contextPath,
       };
 
+      const cleanDisplay = SecretScrubber.scrub(displayCode).cleanText;
+      const cleanVector = SecretScrubber.scrub(vectorCode).cleanText;
+
       chunks.push({
-        displayCode,
-        vectorText: generateVectorText(vectorCode, w.contextPath),
+        displayCode: cleanDisplay,
+        vectorText: generateVectorText(cleanVector, w.contextPath),
         nwsSize: w.size,
         metadata,
       });

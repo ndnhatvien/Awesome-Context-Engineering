@@ -50,7 +50,12 @@ export class ImpactGraphService {
     targets: string[],
     options: ImpactAnalysisOptions = {},
   ): Promise<ImpactAnalysisResult> {
-    const { depth = DEFAULT_DEPTH, maxNodes = DEFAULT_MAX_NODES, testsOnly = false, includePaths = false } = options;
+    const {
+      depth = DEFAULT_DEPTH,
+      maxNodes = DEFAULT_MAX_NODES,
+      testsOnly = false,
+      includePaths = false,
+    } = options;
 
     const resolvedTargets = this.resolveTargets(targets);
     const warnings: string[] = [];
@@ -63,9 +68,7 @@ export class ImpactGraphService {
     }
 
     // Get seed nodes
-    const seedNodeIds = resolvedTargets
-      .filter((t) => t.nodeId)
-      .map((t) => t.nodeId!);
+    const seedNodeIds = resolvedTargets.filter((t) => t.nodeId).map((t) => t.nodeId!);
 
     if (seedNodeIds.length === 0) {
       return {
@@ -83,7 +86,8 @@ export class ImpactGraphService {
     const traversalResult = this.traverseImpact(seedNodeIds, depth, maxNodes);
 
     // Separate tests and files
-    const testNodes: Array<{ node: GraphNode; depth: number; score: number; edges: GraphEdge[] }> = [];
+    const testNodes: Array<{ node: GraphNode; depth: number; score: number; edges: GraphEdge[] }> =
+      [];
     const fileNodes: Array<{ node: GraphNode; depth: number; score: number }> = [];
 
     for (const item of traversalResult.nodes) {
@@ -199,15 +203,30 @@ export class ImpactGraphService {
     seedNodeIds: string[],
     maxDepth: number,
     maxNodes: number,
-  ): { nodes: Array<{ node: GraphNode; depth: number; path: string[]; score: number; edges: GraphEdge[] }> } {
+  ): {
+    nodes: Array<{
+      node: GraphNode;
+      depth: number;
+      path: string[];
+      score: number;
+      edges: GraphEdge[];
+    }>;
+  } {
     const visited = new Set<string>();
-    const result: Array<{ node: GraphNode; depth: number; path: string[]; score: number; edges: GraphEdge[] }> = [];
-    const queue: Array<{ nodeId: string; depth: number; path: string[]; score: number }> = seedNodeIds.map((id) => ({
-      nodeId: id,
-      depth: 0,
-      path: [id],
-      score: 1.0,
-    }));
+    const result: Array<{
+      node: GraphNode;
+      depth: number;
+      path: string[];
+      score: number;
+      edges: GraphEdge[];
+    }> = [];
+    const queue: Array<{ nodeId: string; depth: number; path: string[]; score: number }> =
+      seedNodeIds.map((id) => ({
+        nodeId: id,
+        depth: 0,
+        path: [id],
+        score: 1.0,
+      }));
 
     while (queue.length > 0 && result.length < maxNodes) {
       const current = queue.shift()!;
@@ -244,8 +263,11 @@ export class ImpactGraphService {
 
           // Calculate score for next level
           const edgeWeight = CONFIDENCE_WEIGHTS[edge.confidence];
-          const depthWeight = Math.pow(DEPTH_DECAY, current.depth + 1);
-          const testBonus = fromNode.filePath.includes('.test.') || fromNode.filePath.includes('.spec.') ? TEST_FILE_BONUS : 0;
+          const depthWeight = DEPTH_DECAY ** (current.depth + 1);
+          const testBonus =
+            fromNode.filePath.includes('.test.') || fromNode.filePath.includes('.spec.')
+              ? TEST_FILE_BONUS
+              : 0;
           const newScore = edgeWeight * depthWeight + testBonus;
 
           queue.push({
@@ -427,9 +449,7 @@ export class ImpactGraphService {
   /**
    * Make affected file result.
    */
-  private makeAffectedFile(
-    item: { node: GraphNode; depth: number; score: number },
-  ): AffectedFile {
+  private makeAffectedFile(item: { node: GraphNode; depth: number; score: number }): AffectedFile {
     return {
       filePath: item.node.filePath,
       score: item.score,

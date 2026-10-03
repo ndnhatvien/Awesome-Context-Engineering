@@ -8,14 +8,19 @@ import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { CallToolRequestSchema, ListToolsRequestSchema } from '@modelcontextprotocol/sdk/types.js';
 import { logger } from '../utils/logger.js';
+import { executeWithProgressHeartbeat } from './progressHeartbeat.js';
 import {
-  codebaseRetrievalSchema,
+  agentMemorySchema,
   codebaseImpactSchema,
+  codebaseRetrievalSchema,
   detectTasksSchema,
+  expandChunkSchema,
   generateCommitMessageSchema,
-  handleCodebaseRetrieval,
+  handleAgentMemory,
   handleCodebaseImpact,
+  handleCodebaseRetrieval,
   handleDetectTasks,
+  handleExpandChunk,
   handleGenerateCommitMessage,
 } from './tools/index.js';
 
@@ -201,16 +206,15 @@ Note: Only TypeScript/JavaScript files are analyzed in the MVP. Graph must be bu
           description: 'The absolute file system path to the repository root',
         },
         target: {
-          oneOf: [
-            { type: 'string' },
-            { type: 'array', items: { type: 'string' } },
-          ],
-          description: 'Target file path, symbol path (file:symbol), or symbol name to analyze. Can be a single string or array of strings.',
+          oneOf: [{ type: 'string' }, { type: 'array', items: { type: 'string' } }],
+          description:
+            'Target file path, symbol path (file:symbol), or symbol name to analyze. Can be a single string or array of strings.',
         },
         mode: {
           type: 'string',
           enum: ['impact', 'affected'],
-          description: 'Analysis mode: "impact" for detailed paths, "affected" for test/file list (default: affected)',
+          description:
+            'Analysis mode: "impact" for detailed paths, "affected" for test/file list (default: affected)',
         },
         depth: {
           type: 'number',
@@ -226,6 +230,112 @@ Note: Only TypeScript/JavaScript files are analyzed in the MVP. Graph must be bu
         },
       },
       required: ['repo_path', 'target'],
+    },
+  },
+  {
+    name: 'agent-memory',
+    description: `
+Autonomous memory and context management for AI agents (Four-Layer Memory Architecture).
+
+Capabilities:
+1. 'record_failure': Record a mistake, failed test, or bug to prevent repeating it in future sessions.
+2. 'record_strategy': Record a verified solution, architecture rule, or pattern that worked.
+3. 'record_constraint': Record project rules, conventions, and architectural constraints.
+4. 'record_decision': Record high-level architectural decisions and milestones.
+5. 'query': Search memory for past lessons, patterns, and rules related to a task or file.
+6. 'compile_context': Compile fresh working context for a task with priority-based budgeting.
+7. 'setup_hooks': Automatically install Claude Code native hooks (.claude/hooks/session-start.mjs) for context persistence across /clear and /compact.
+`,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        repo_path: {
+          type: 'string',
+          description: 'The absolute file system path to the repository root.',
+        },
+        action: {
+          type: 'string',
+          enum: [
+            'record_failure',
+            'record_strategy',
+            'record_constraint',
+            'record_decision',
+            'query',
+            'compile_context',
+            'setup_hooks',
+          ],
+          description: 'Memory action to perform',
+        },
+        title: {
+          type: 'string',
+          description: 'Short title for the memory item (required for record actions)',
+        },
+        content: {
+          type: 'string',
+          description: 'Detailed description, error log, or solution (required for record actions)',
+        },
+        target_files: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'List of relevant file paths or identifiers',
+        },
+        tags: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Tags/keywords',
+        },
+        priority: {
+          type: 'number',
+          description: 'Priority weight (0-100)',
+        },
+        query: {
+          type: 'string',
+          description: 'Query string for search',
+        },
+        task: {
+          type: 'string',
+          description: 'Task objective for compile_context',
+        },
+        max_chars: {
+          type: 'number',
+          description: 'Character limit for compiled context (default: 6000)',
+        },
+      },
+      required: ['repo_path', 'action'],
+    },
+  },
+  {
+    name: 'expand-chunk',
+    description: `
+Progressive detail retrieval: Expand full, uncompressed implementation code for a chunk or line range.
+Use this when a search result returned a skeletonized function or class and you need to view or edit the full body.
+`,
+    inputSchema: {
+      type: 'object',
+      properties: {
+        repo_path: {
+          type: 'string',
+          description: 'The absolute file system path to the repository root.',
+        },
+        chunk_id: {
+          type: 'string',
+          description:
+            "The chunk identifier displayed in search results (e.g. 'src/api/client.ts#2').",
+        },
+        file_path: {
+          type: 'string',
+          description: "Relative path to the file (e.g. 'src/api/client.ts').",
+        },
+        start_line: {
+          type: 'number',
+          description: 'Optional 1-based start line number.',
+        },
+        end_line: {
+          type: 'number',
+          description: 'Optional 1-based end line number.',
+        },
+      },
+      required: ['repo_path'],
     },
   },
 ];
@@ -263,52 +373,41 @@ export async function startMcpServer(): Promise<void> {
     const { name, arguments: args } = request.params;
     logger.info({ tool: name }, '收到 call_tool 请求');
 
-    // 提取 progressToken（如果客户端请求进度通知）
-    const rawToken = extra._meta?.progressToken;
-    const progressToken =
-      typeof rawToken === 'string' || typeof rawToken === 'number' ? rawToken : undefined;
-
-    // 创建进度通知回调
-    const onProgress = progressToken
-      ? async (current: number, total?: number, message?: string) => {
-          try {
-            await extra.sendNotification({
-              method: 'notifications/progress',
-              params: {
-                progressToken,
-                progress: current,
-                total,
-                message,
-              },
-            });
-          } catch (err) {
-            // 忽略通知发送失败，不影响主流程
-            logger.debug({ error: (err as Error).message }, '发送进度通知失败');
-          }
-        }
-      : undefined;
-
     try {
-      switch (name) {
-        case 'codebase-retrieval': {
-          const parsed = codebaseRetrievalSchema.parse(args);
-          return await handleCodebaseRetrieval(parsed, undefined, onProgress);
-        }
-        case 'codebase-impact': {
-          const parsed = codebaseImpactSchema.parse(args);
-          return await handleCodebaseImpact(parsed);
-        }
-        case 'generate-commit-message': {
-          const parsed = generateCommitMessageSchema.parse(args);
-          return await handleGenerateCommitMessage(parsed);
-        }
-        case 'detect-tasks': {
-          const parsed = detectTasksSchema.parse(args);
-          return await handleDetectTasks(parsed);
-        }
-        default:
-          throw new Error(`Unknown tool: ${name}`);
-      }
+      return await executeWithProgressHeartbeat(
+        extra,
+        async (onProgress) => {
+          switch (name) {
+            case 'codebase-retrieval': {
+              const parsed = codebaseRetrievalSchema.parse(args);
+              return await handleCodebaseRetrieval(parsed, undefined, onProgress);
+            }
+            case 'codebase-impact': {
+              const parsed = codebaseImpactSchema.parse(args);
+              return await handleCodebaseImpact(parsed);
+            }
+            case 'generate-commit-message': {
+              const parsed = generateCommitMessageSchema.parse(args);
+              return await handleGenerateCommitMessage(parsed);
+            }
+            case 'detect-tasks': {
+              const parsed = detectTasksSchema.parse(args);
+              return await handleDetectTasks(parsed);
+            }
+            case 'agent-memory': {
+              const parsed = agentMemorySchema.parse(args);
+              return await handleAgentMemory(parsed);
+            }
+            case 'expand-chunk': {
+              const parsed = expandChunkSchema.parse(args);
+              return await handleExpandChunk(parsed);
+            }
+            default:
+              throw new Error(`Unknown tool: ${name}`);
+          }
+        },
+        { toolName: name },
+      );
     } catch (err) {
       const error = err as { message?: string; stack?: string };
       logger.error({ error: error.message, stack: error.stack, tool: name }, '工具调用失败');

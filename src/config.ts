@@ -616,4 +616,19 @@ export function getIncludePatterns(): string[] {
   return patterns;
 }
 
+/**
+ * 获取 MCP 进度心跳通知间隔（毫秒）
+ * 默认 15,000ms（15 秒），确保远低于 300s 超时限制
+ */
+export function getMcpHeartbeatIntervalMs(): number {
+  const envVal = process.env.MCP_HEARTBEAT_INTERVAL_MS;
+  if (envVal) {
+    const parsed = Number.parseInt(envVal, 10);
+    if (!Number.isNaN(parsed) && parsed > 0) {
+      return parsed;
+    }
+  }
+  return 15_000;
+}
+
 export { isDev };

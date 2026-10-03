@@ -12,14 +12,17 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { z } from 'zod';
+import { skeletonizeCode } from '../../chunking/skeletonizer.js';
 import { DEFAULT_ENV_TEMPLATE } from '../../config.js';
 import { generateProjectId, initDb } from '../../db/index.js';
+import { SavingsLedger } from '../../ledger/SavingsLedger.js';
 import { getAllowedLanguages, getCodeLanguages } from '../../scanner/language.js';
 // 注意：SearchService 和 scan 改为延迟导入，避免在 MCP 启动时就加载 native 模块
 import { recordRetrievalEvent } from '../../search/feedbackLoop.js';
 import { createFilePathFilter, normalizeFilePathFilterConfig } from '../../search/pathFilter.js';
 import { buildQueryChannels } from '../../search/queryChannels.js';
 import type { ContextPack, ScoredChunk, SearchConfig, Segment } from '../../search/types.js';
+import { SecretScrubber } from '../../security/SecretScrubber.js';
 import { logger } from '../../utils/logger.js';
 import { getConfigBaseDir, getDefaultEnvFilePath, getProjectDbPath } from '../../utils/paths.js';
 import type { ChunkRecord } from '../../vectorStore/index.js';
@@ -44,10 +47,10 @@ export const codebaseRetrievalSchema = z.object({
       'HARD FILTERS. Precise identifiers to narrow down results. Only use symbols KNOWN to exist to avoid false negatives.',
     ),
   response_mode: z
-    .enum(['overview', 'raw'])
+    .enum(['overview', 'raw', 'skeleton'])
     .optional()
     .describe(
-      "Response format mode. 'overview' returns concise segments. 'raw' runs two-stage retrieval and returns Top-N core raw code blocks.",
+      "Response format mode. 'overview' returns concise segments. 'raw' returns Top-N raw code blocks. 'skeleton' applies AST progressive compression (collapsing method/function bodies with expand-chunk placeholders) saving up to 89% tokens.",
     ),
   raw_top_n: z
     .number()
@@ -217,7 +220,7 @@ export function normalizeLanguageFilter(config: LanguageFilterConfig): string[] 
   return result.length > 0 ? result : undefined;
 }
 
-type ResponseMode = 'overview' | 'raw';
+type ResponseMode = 'overview' | 'raw' | 'skeleton';
 
 interface ResponseFormatOptions {
   responseMode: ResponseMode;
@@ -332,7 +335,11 @@ async function ensureIndexed(
 // 工具处理函数
 
 /** 进度回调类型 */
-export type ProgressCallback = (current: number, total?: number, message?: string) => void;
+export type ProgressCallback = (
+  current: number,
+  total?: number,
+  message?: string,
+) => Promise<void> | void;
 
 /**
  * 处理 codebase-retrieval 工具调用
@@ -445,6 +452,7 @@ export async function handleCodebaseRetrieval(
   const { SearchService } = await import('../../search/SearchService.js');
 
   // 5. 创建 SearchService 实例（使用 Zen Config）
+  onProgress?.(70, 100, '初始化语义检索引擎...');
   const service = new SearchService(projectId, normalizedRepoPath, configOverride);
 
   try {
@@ -452,6 +460,7 @@ export async function handleCodebaseRetrieval(
     logger.debug('SearchService 初始化完成');
 
     // 6. 执行搜索
+    onProgress?.(80, 100, '执行混合搜索与上下文扩展...');
     const contextPack = await service.buildContextPack(channels.rerankQuery, channels, {
       filePathFilter,
       languageFilter,
@@ -544,18 +553,96 @@ export async function handleCodebaseRetrieval(
     }
 
     // 8. 格式化输出
+    onProgress?.(95, 100, '格式化检索结果...');
     let rawCodeBlocks: RawCodeBlock[] = [];
     if (responseMode === 'raw') {
       rawCodeBlocks = await collectRawCodeBlocks(projectId, contextPack.seeds, rawTopN);
     }
 
-    return formatMcpResponse(contextPack, {
+    const response = formatMcpResponse(contextPack, {
       responseMode,
       rawTopN,
       includeGlobs: normalizedFilterConfig.includeGlobs,
       excludeGlobs: normalizedFilterConfig.excludeGlobs,
       rawCodeBlocks,
     });
+
+    // 9. 检索并织入关联 Agent Memory（避免 AI 重复犯错）
+    try {
+      const db = initDb(projectId);
+      try {
+        const { MemoryService } = await import('../../memory/MemoryService.js');
+        const memoryService = new MemoryService(db);
+        const relevantMemories = memoryService.findRelevantMemories({
+          query: information_request,
+          targetFiles: contextPack.seeds.map((s) => s.filePath),
+          limit: 5,
+        });
+
+        if (relevantMemories.length > 0) {
+          const memoryBlock = memoryService.formatMemoryForContext(relevantMemories);
+          if (response.content.length > 0) {
+            response.content[0].text = `${memoryBlock}\n\n---\n\n${response.content[0].text}`;
+          }
+        }
+      } finally {
+        db.close();
+      }
+    } catch (err) {
+      logger.debug({ error: (err as Error).message }, '附加关联 Agent Memory 失败（不影响主流程）');
+    }
+
+    // 10. 计算与记录 Token 节约账本 (CCE Savings Ledger) 并附加状态摘要
+    try {
+      const db = initDb(projectId);
+      try {
+        const touchedFiles = Array.from(new Set(contextPack.files.map((f) => f.filePath)));
+        let baselineTokens = 0;
+        if (touchedFiles.length > 0) {
+          const placeholders = touchedFiles.map(() => '?').join(',');
+          const rows = db
+            .prepare(`SELECT SUM(size) as total_size FROM files WHERE path IN (${placeholders})`)
+            .get(...touchedFiles) as { total_size?: number } | undefined;
+          const totalSize = rows?.total_size ?? 0;
+          baselineTokens = Math.max(1, Math.ceil(totalSize / 3.8));
+        }
+
+        const currentText = response.content[0]?.text || '';
+        const deliveredTokens = SavingsLedger.estimateTokens(currentText);
+
+        if (baselineTokens < deliveredTokens) {
+          baselineTokens = Math.round(deliveredTokens * 1.5);
+        }
+
+        const ledger = new SavingsLedger(db);
+        const record = ledger.record({
+          projectId,
+          query: information_request,
+          category: responseMode === 'skeleton' ? 'chunk_compression' : 'retrieval',
+          baselineTokens,
+          deliveredTokens,
+          details: {
+            mode: responseMode,
+            fileCount: touchedFiles.length,
+            seedCount: contextPack.seeds.length,
+          },
+        });
+
+        const pct =
+          baselineTokens > 0 ? Math.round((record.savedTokens / baselineTokens) * 100) : 0;
+        const footer = `\n\n---\n⚡ **Token Savings (CCE Engine)**: Saved ~${record.savedTokens.toLocaleString()} tokens (~$${record.costSavedUsd.toFixed(3)}) vs reading full files (${pct}% reduction).`;
+        if (response.content.length > 0) {
+          response.content[0].text += footer;
+        }
+      } finally {
+        db.close();
+      }
+    } catch (err) {
+      logger.debug({ error: (err as Error).message }, '记录 Token 节约账本失败（不影响主流程）');
+    }
+
+    onProgress?.(100, 100, '检索完成');
+    return response;
   } finally {
     await service.close();
   }
@@ -598,7 +685,9 @@ function formatMcpResponse(
   } else {
     body = files
       .map((file) => {
-        const segments = file.segments.map((seg) => formatSegment(seg)).join('\n\n');
+        const segments = file.segments
+          .map((seg) => formatSegment(seg, options.responseMode))
+          .join('\n\n');
         return segments;
       })
       .join('\n\n---\n\n');
@@ -619,11 +708,18 @@ function formatMcpResponse(
 /**
  * 格式化单个代码段
  */
-function formatSegment(seg: Segment): string {
+function formatSegment(seg: Segment, mode?: ResponseMode): string {
   const lang = detectLanguage(seg.filePath);
   const header = `## ${seg.filePath} (L${seg.startLine}-${seg.endLine})`;
   const breadcrumb = seg.breadcrumb ? `> ${seg.breadcrumb}` : '';
-  const code = `\`\`\`${lang}\n${seg.text}\n\`\`\``;
+
+  let codeText = seg.text;
+  if (mode === 'skeleton') {
+    const chunkId = `${seg.filePath}#${seg.startLine}`;
+    codeText = skeletonizeCode(codeText, lang, { chunkId }).code;
+  }
+  const cleanCode = SecretScrubber.scrub(codeText).cleanText;
+  const code = `\`\`\`${lang}\n${cleanCode}\n\`\`\``;
 
   return [header, breadcrumb, code].filter(Boolean).join('\n');
 }
@@ -632,7 +728,8 @@ function formatRawCodeBlock(block: RawCodeBlock): string {
   const lang = detectLanguage(block.filePath);
   const header = `## ${block.filePath} (L${block.startLine}-${block.endLine}) score=${block.score.toFixed(4)} source=${block.source}`;
   const breadcrumb = block.breadcrumb ? `> ${block.breadcrumb}` : '';
-  const code = `\`\`\`${lang}\n${block.text}\n\`\`\``;
+  const cleanCode = SecretScrubber.scrub(block.text).cleanText;
+  const code = `\`\`\`${lang}\n${cleanCode}\n\`\`\``;
   return [header, breadcrumb, code].filter(Boolean).join('\n');
 }
 

@@ -7,21 +7,13 @@
 
 import type Database from 'better-sqlite3';
 import { logger } from '../utils/logger.js';
-import type {
-  GraphEdge,
-  GraphIndexState,
-  GraphIndexStatus,
-  GraphNode,
-} from './types.js';
+import type { GraphEdge, GraphIndexState, GraphIndexStatus, GraphNode } from './types.js';
 
 /**
  * Delete all graph data for a given file path.
  * Used during file updates or deletions.
  */
-export function deleteGraphDataForFile(
-  db: Database.Database,
-  filePath: string,
-): void {
+export function deleteGraphDataForFile(db: Database.Database, filePath: string): void {
   db.prepare('DELETE FROM graph_nodes WHERE file_path = ?').run(filePath);
   db.prepare('DELETE FROM graph_edges WHERE file_path = ?').run(filePath);
   db.prepare('DELETE FROM graph_index_state WHERE file_path = ?').run(filePath);
@@ -30,10 +22,7 @@ export function deleteGraphDataForFile(
 /**
  * Upsert graph nodes (bulk insert/replace).
  */
-export function upsertGraphNodes(
-  db: Database.Database,
-  nodes: GraphNode[],
-): void {
+export function upsertGraphNodes(db: Database.Database, nodes: GraphNode[]): void {
   if (nodes.length === 0) return;
 
   const stmt = db.prepare(`
@@ -67,10 +56,7 @@ export function upsertGraphNodes(
 /**
  * Upsert graph edges (bulk insert/replace).
  */
-export function upsertGraphEdges(
-  db: Database.Database,
-  edges: GraphEdge[],
-): void {
+export function upsertGraphEdges(db: Database.Database, edges: GraphEdge[]): void {
   if (edges.length === 0) return;
 
   const stmt = db.prepare(`
@@ -101,10 +87,7 @@ export function upsertGraphEdges(
 /**
  * Write graph index state for a file.
  */
-export function writeGraphIndexState(
-  db: Database.Database,
-  state: GraphIndexState,
-): void {
+export function writeGraphIndexState(db: Database.Database, state: GraphIndexState): void {
   db.prepare(`
     INSERT OR REPLACE INTO graph_index_state (
       file_path, file_hash, indexed_at, language,
@@ -255,10 +238,7 @@ export async function indexFileGraph(
     return true;
   } catch (error) {
     const err = error as Error;
-    logger.warn(
-      { filePath, error: err.message },
-      'Graph extraction failed (best-effort)',
-    );
+    logger.warn({ filePath, error: err.message }, 'Graph extraction failed (best-effort)');
 
     // Write error state
     writeGraphIndexState(db, {
@@ -280,10 +260,7 @@ export async function indexFileGraph(
 /**
  * Get all graph nodes for a file.
  */
-export function getGraphNodesForFile(
-  db: Database.Database,
-  filePath: string,
-): GraphNode[] {
+export function getGraphNodesForFile(db: Database.Database, filePath: string): GraphNode[] {
   const rows = db
     .prepare(
       `
@@ -325,10 +302,7 @@ export function getGraphNodesForFile(
 /**
  * Get all graph edges for a file.
  */
-export function getGraphEdgesForFile(
-  db: Database.Database,
-  filePath: string,
-): GraphEdge[] {
+export function getGraphEdgesForFile(db: Database.Database, filePath: string): GraphEdge[] {
   const rows = db
     .prepare(
       `
