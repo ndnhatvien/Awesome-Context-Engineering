@@ -274,7 +274,7 @@
 
   <!-- BYOK Settings Modal -->
   <div id="byok-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
-    <div class="bg-slate-900 border border-slate-800 rounded-xl max-w-lg w-full p-6 space-y-5 shadow-2xl">
+    <div class="bg-slate-900 border border-slate-800 rounded-xl max-w-xl w-full p-6 space-y-5 shadow-2xl max-h-[90vh] overflow-y-auto">
       <div class="flex items-center justify-between border-b border-slate-800 pb-3">
         <div class="flex items-center gap-2 text-white font-semibold">
           <i class="fa-solid fa-key text-indigo-400"></i>
@@ -286,27 +286,76 @@
       </div>
 
       <p class="text-xs text-slate-400">
-        You can test retrieval by passing custom API Keys directly from the browser. Keys are saved locally in your browser's <code class="text-indigo-300">localStorage</code> and never sent elsewhere.
+        You can test retrieval by passing custom API Keys and Models directly from the browser. Keys are saved locally in your browser's <code class="text-indigo-300">localStorage</code> and never sent elsewhere.
       </p>
 
-      <div class="space-y-3">
-        <div>
-          <label class="block text-xs font-medium text-slate-300 mb-1">Embeddings API Key</label>
-          <input type="password" id="byok-emb-key" placeholder="sk-..." class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+      <!-- Presets -->
+      <div class="space-y-2">
+        <label class="block text-xs font-semibold uppercase text-slate-400">Quick Provider Presets</label>
+        <div class="grid grid-cols-3 gap-2">
+          <button type="button" onclick="applyPreset('siliconflow')" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-indigo-600/30 border border-slate-700 hover:border-indigo-500 text-xs text-slate-200 transition text-center font-medium">
+            SiliconFlow
+          </button>
+          <button type="button" onclick="applyPreset('openai')" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-indigo-600/30 border border-slate-700 hover:border-indigo-500 text-xs text-slate-200 transition text-center font-medium">
+            OpenAI + Cohere
+          </button>
+          <button type="button" onclick="applyPreset('jina')" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-indigo-600/30 border border-slate-700 hover:border-indigo-500 text-xs text-slate-200 transition text-center font-medium">
+            Jina AI
+          </button>
         </div>
-        <div>
-          <label class="block text-xs font-medium text-slate-300 mb-1">Embeddings Base URL</label>
-          <input type="text" id="byok-emb-base" placeholder="https://api.openai.com/v1" class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+      </div>
+
+      <!-- Embedding Section -->
+      <div class="p-3.5 rounded-lg border border-slate-800 bg-slate-950 space-y-3">
+        <div class="text-xs font-semibold text-indigo-400 uppercase tracking-wider flex items-center gap-1.5">
+          <i class="fa-solid fa-cube text-xs"></i>
+          <span>1. Embedding Configuration</span>
         </div>
-        <div>
-          <label class="block text-xs font-medium text-slate-300 mb-1">Rerank API Key</label>
-          <input type="password" id="byok-rerank-key" placeholder="sk-..." class="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[11px] font-medium text-slate-300 mb-1">API Key</label>
+            <input type="password" id="byok-emb-key" placeholder="sk-..." class="w-full bg-slate-900 border border-slate-800 rounded px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500">
+          </div>
+          <div>
+            <label class="block text-[11px] font-medium text-slate-300 mb-1">Base URL</label>
+            <input type="text" id="byok-emb-base" placeholder="https://api.siliconflow.cn/v1/embeddings" class="w-full bg-slate-900 border border-slate-800 rounded px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500">
+          </div>
+          <div>
+            <label class="block text-[11px] font-medium text-slate-300 mb-1">Model Name</label>
+            <input type="text" id="byok-emb-model" placeholder="BAAI/bge-m3" class="w-full bg-slate-900 border border-slate-800 rounded px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500">
+          </div>
+          <div>
+            <label class="block text-[11px] font-medium text-slate-300 mb-1">Dimensions</label>
+            <input type="number" id="byok-emb-dim" placeholder="1024" value="1024" class="w-full bg-slate-900 border border-slate-800 rounded px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500">
+          </div>
+        </div>
+      </div>
+
+      <!-- Reranker Section -->
+      <div class="p-3.5 rounded-lg border border-slate-800 bg-slate-950 space-y-3">
+        <div class="text-xs font-semibold text-purple-400 uppercase tracking-wider flex items-center gap-1.5">
+          <i class="fa-solid fa-filter text-xs"></i>
+          <span>2. Reranker Configuration</span>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-[11px] font-medium text-slate-300 mb-1">API Key</label>
+            <input type="password" id="byok-rerank-key" placeholder="sk-..." class="w-full bg-slate-900 border border-slate-800 rounded px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500">
+          </div>
+          <div>
+            <label class="block text-[11px] font-medium text-slate-300 mb-1">Base URL</label>
+            <input type="text" id="byok-rerank-base" placeholder="https://api.siliconflow.cn/v1/rerank" class="w-full bg-slate-900 border border-slate-800 rounded px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500">
+          </div>
+          <div class="sm:col-span-2">
+            <label class="block text-[11px] font-medium text-slate-300 mb-1">Model Name</label>
+            <input type="text" id="byok-rerank-model" placeholder="BAAI/bge-reranker-v2-m3" class="w-full bg-slate-900 border border-slate-800 rounded px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500">
+          </div>
         </div>
       </div>
 
       <div class="flex justify-end gap-2 pt-2 border-t border-slate-800">
         <button onclick="toggleConfigModal()" class="px-4 py-2 rounded text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 transition">Cancel</button>
-        <button onclick="saveByokSettings()" class="px-4 py-2 rounded text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-medium transition">Save Keys</button>
+        <button onclick="saveByokSettings()" class="px-4 py-2 rounded text-xs bg-indigo-600 hover:bg-indigo-500 text-white font-medium transition">Save Keys & Models</button>
       </div>
     </div>
   </div>
@@ -349,20 +398,75 @@
       });
     }
 
+    // Presets
+    const PRESETS = {
+      siliconflow: {
+        embBase: 'https://api.siliconflow.cn/v1/embeddings',
+        embModel: 'BAAI/bge-m3',
+        embDim: '1024',
+        rerankBase: 'https://api.siliconflow.cn/v1/rerank',
+        rerankModel: 'BAAI/bge-reranker-v2-m3'
+      },
+      openai: {
+        embBase: 'https://api.openai.com/v1/embeddings',
+        embModel: 'text-embedding-3-small',
+        embDim: '1024',
+        rerankBase: 'https://api.cohere.com/v1/rerank',
+        rerankModel: 'rerank-v3.5'
+      },
+      jina: {
+        embBase: 'https://api.jina.ai/v1/embeddings',
+        embModel: 'jina-embeddings-v3',
+        embDim: '1024',
+        rerankBase: 'https://api.jina.ai/v1/rerank',
+        rerankModel: 'jina-reranker-v2-base-multilingual'
+      }
+    };
+
+    function applyPreset(name) {
+      const p = PRESETS[name];
+      if (!p) return;
+      document.getElementById('byok-emb-base').value = p.embBase;
+      document.getElementById('byok-emb-model').value = p.embModel;
+      document.getElementById('byok-emb-dim').value = p.embDim;
+      document.getElementById('byok-rerank-base').value = p.rerankBase;
+      document.getElementById('byok-rerank-model').value = p.rerankModel;
+    }
+
     // Populate Dynamic MCP Snippets
     function populateSnippets() {
+      const headers = {};
+      const embKey = localStorage.getItem('ace_emb_key');
+      const embBase = localStorage.getItem('ace_emb_base');
+      const embModel = localStorage.getItem('ace_emb_model');
+      const embDim = localStorage.getItem('ace_emb_dim');
+      const rerankKey = localStorage.getItem('ace_rerank_key');
+      const rerankBase = localStorage.getItem('ace_rerank_base');
+      const rerankModel = localStorage.getItem('ace_rerank_model');
+
+      if (embKey) headers['x-embeddings-api-key'] = embKey;
+      if (embBase) headers['x-embeddings-base-url'] = embBase;
+      if (embModel) headers['x-embeddings-model'] = embModel;
+      if (embDim) headers['x-embeddings-dimensions'] = embDim;
+      if (rerankKey) headers['x-rerank-api-key'] = rerankKey;
+      if (rerankBase) headers['x-rerank-base-url'] = rerankBase;
+      if (rerankModel) headers['x-rerank-model'] = rerankModel;
+
       const cursorJson = {
         mcpServers: {
           "ace-cloud": {
-            url: `${baseUrl}/api/mcp`
+            url: `${baseUrl}/api/mcp`,
+            ...(Object.keys(headers).length > 0 ? { headers } : {})
           }
         }
       };
       document.getElementById('cursor-config-code').textContent = JSON.stringify(cursorJson, null, 2);
 
-      const curlCmd = `curl -X POST ${baseUrl}/api/search \\
-  -H "Content-Type: application/json" \\
-  -d '{"query": "authentication flow", "repo_path": "default"}'`;
+      let curlCmd = `curl -X POST ${baseUrl}/api/search \\\n  -H "Content-Type: application/json"`;
+      for (const [k, v] of Object.entries(headers)) {
+        curlCmd += ` \\\n  -H "${k}: ${v}"`;
+      }
+      curlCmd += ` \\\n  -d '{"query": "authentication flow", "repo_path": "default"}'`;
       document.getElementById('curl-config-code').textContent = curlCmd;
     }
 
@@ -386,11 +490,19 @@
       const headers = { 'Content-Type': 'application/json' };
       const embKey = localStorage.getItem('ace_emb_key');
       const embBase = localStorage.getItem('ace_emb_base');
+      const embModel = localStorage.getItem('ace_emb_model');
+      const embDim = localStorage.getItem('ace_emb_dim');
       const rerankKey = localStorage.getItem('ace_rerank_key');
+      const rerankBase = localStorage.getItem('ace_rerank_base');
+      const rerankModel = localStorage.getItem('ace_rerank_model');
 
       if (embKey) headers['x-embeddings-api-key'] = embKey;
       if (embBase) headers['x-embeddings-base-url'] = embBase;
+      if (embModel) headers['x-embeddings-model'] = embModel;
+      if (embDim) headers['x-embeddings-dimensions'] = embDim;
       if (rerankKey) headers['x-rerank-api-key'] = rerankKey;
+      if (rerankBase) headers['x-rerank-base-url'] = rerankBase;
+      if (rerankModel) headers['x-rerank-model'] = rerankModel;
 
       try {
         const res = await fetch('/api/search', {
@@ -451,22 +563,35 @@
       modal.classList.toggle('hidden');
       if (!modal.classList.contains('hidden')) {
         document.getElementById('byok-emb-key').value = localStorage.getItem('ace_emb_key') || '';
-        document.getElementById('byok-emb-base').value = localStorage.getItem('ace_emb_base') || '';
+        document.getElementById('byok-emb-base').value = localStorage.getItem('ace_emb_base') || 'https://api.siliconflow.cn/v1/embeddings';
+        document.getElementById('byok-emb-model').value = localStorage.getItem('ace_emb_model') || 'BAAI/bge-m3';
+        document.getElementById('byok-emb-dim').value = localStorage.getItem('ace_emb_dim') || '1024';
         document.getElementById('byok-rerank-key').value = localStorage.getItem('ace_rerank_key') || '';
+        document.getElementById('byok-rerank-base').value = localStorage.getItem('ace_rerank_base') || 'https://api.siliconflow.cn/v1/rerank';
+        document.getElementById('byok-rerank-model').value = localStorage.getItem('ace_rerank_model') || 'BAAI/bge-reranker-v2-m3';
       }
     }
 
     function saveByokSettings() {
       const embKey = document.getElementById('byok-emb-key').value.trim();
       const embBase = document.getElementById('byok-emb-base').value.trim();
+      const embModel = document.getElementById('byok-emb-model').value.trim();
+      const embDim = document.getElementById('byok-emb-dim').value.trim();
       const rerankKey = document.getElementById('byok-rerank-key').value.trim();
+      const rerankBase = document.getElementById('byok-rerank-base').value.trim();
+      const rerankModel = document.getElementById('byok-rerank-model').value.trim();
 
       if (embKey) localStorage.setItem('ace_emb_key', embKey); else localStorage.removeItem('ace_emb_key');
       if (embBase) localStorage.setItem('ace_emb_base', embBase); else localStorage.removeItem('ace_emb_base');
+      if (embModel) localStorage.setItem('ace_emb_model', embModel); else localStorage.removeItem('ace_emb_model');
+      if (embDim) localStorage.setItem('ace_emb_dim', embDim); else localStorage.removeItem('ace_emb_dim');
       if (rerankKey) localStorage.setItem('ace_rerank_key', rerankKey); else localStorage.removeItem('ace_rerank_key');
+      if (rerankBase) localStorage.setItem('ace_rerank_base', rerankBase); else localStorage.removeItem('ace_rerank_base');
+      if (rerankModel) localStorage.setItem('ace_rerank_model', rerankModel); else localStorage.removeItem('ace_rerank_model');
 
       toggleConfigModal();
-      alert('BYOK Settings saved in browser!');
+      populateSnippets();
+      alert('BYOK Settings saved! MCP snippet and Playground are now updated.');
     }
 
     // Init
