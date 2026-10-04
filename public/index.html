@@ -107,6 +107,10 @@
           <i class="fa-solid fa-plug text-slate-400"></i>
           <span>MCP Client Setup</span>
         </button>
+        <button onclick="switchTab('endpoints')" id="tab-btn-endpoints" class="px-4 py-3 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2">
+          <i class="fa-solid fa-vial-circle-check text-slate-400"></i>
+          <span>Endpoint Tester</span>
+        </button>
         <button onclick="switchTab('docs')" id="tab-btn-docs" class="px-4 py-3 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2">
           <i class="fa-solid fa-book text-slate-400"></i>
           <span>API Reference</span>
@@ -227,14 +231,176 @@
         </div>
       </div>
 
-      <!-- Tab 3: API Reference -->
+      <!-- Tab 3: Endpoint Tester -->
+      <div id="tab-endpoints" class="hidden p-6 space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+          <div>
+            <h3 class="text-base font-semibold text-white flex items-center gap-2">
+              <i class="fa-solid fa-vial-circle-check text-indigo-400"></i>
+              <span>Endpoint Testing Suite</span>
+            </h3>
+            <p class="text-xs text-slate-400 mt-1">Live test and verify compatibility endpoints for Augment Code, AI Agent frameworks, and external clients.</p>
+          </div>
+          <button onclick="testAllEndpoints()" id="test-all-btn" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-medium transition shadow-lg shadow-indigo-600/25 flex items-center gap-2 shrink-0">
+            <i class="fa-solid fa-play"></i>
+            <span>Run All Tests</span>
+          </button>
+        </div>
+
+        <div id="test-summary-banner" class="hidden p-3 rounded-lg border text-xs flex items-center justify-between">
+          <span id="test-summary-text" class="font-medium flex items-center gap-2"></span>
+          <span id="test-summary-count" class="font-mono text-[11px] px-2 py-0.5 rounded bg-slate-900/60 font-semibold"></span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Card 1: /get-models -->
+          <div class="p-4 rounded-xl border border-slate-800 bg-slate-950 space-y-3">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">GET</span>
+                <span class="font-mono text-xs font-semibold text-white">/get-models</span>
+              </div>
+              <span id="badge-get-models" class="text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">Untested</span>
+            </div>
+            <p class="text-xs text-slate-400">Model discovery & service capability probe for Augment Code / BYOK.</p>
+            <div class="flex items-center justify-between pt-1">
+              <div class="flex gap-2">
+                <button onclick="runEndpointTest('get-models', 'GET', '/get-models')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-xs transition font-medium flex items-center gap-1.5">
+                  <i class="fa-solid fa-play text-[10px]"></i> Test GET
+                </button>
+                <button onclick="runEndpointTest('get-models', 'POST', '/augment/get-models')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 rounded text-xs transition font-medium">
+                  Test /augment
+                </button>
+              </div>
+              <span id="latency-get-models" class="text-[11px] font-mono text-slate-500"></span>
+            </div>
+            <pre id="output-get-models" class="hidden p-2.5 bg-slate-900 border border-slate-800/80 rounded text-[11px] font-mono text-slate-300 overflow-x-auto max-h-36 leading-relaxed"></pre>
+          </div>
+
+          <!-- Card 2: /context-canvas/list -->
+          <div class="p-4 rounded-xl border border-slate-800 bg-slate-950 space-y-3">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">GET</span>
+                <span class="font-mono text-xs font-semibold text-white">/context-canvas/list</span>
+              </div>
+              <span id="badge-context-canvas" class="text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">Untested</span>
+            </div>
+            <p class="text-xs text-slate-400">Augment Code Context Canvas list probe (supports both GET & POST).</p>
+            <div class="flex items-center justify-between pt-1">
+              <div class="flex gap-2">
+                <button onclick="runEndpointTest('context-canvas', 'GET', '/context-canvas/list')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-xs transition font-medium flex items-center gap-1.5">
+                  <i class="fa-solid fa-play text-[10px]"></i> Test GET
+                </button>
+                <button onclick="runEndpointTest('context-canvas', 'POST', '/context-canvas/list/')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 rounded text-xs transition font-medium">
+                  Test POST /
+                </button>
+              </div>
+              <span id="latency-context-canvas" class="text-[11px] font-mono text-slate-500"></span>
+            </div>
+            <pre id="output-context-canvas" class="hidden p-2.5 bg-slate-900 border border-slate-800/80 rounded text-[11px] font-mono text-slate-300 overflow-x-auto max-h-36 leading-relaxed"></pre>
+          </div>
+
+          <!-- Card 3: /search-external-sources/ -->
+          <div class="p-4 rounded-xl border border-slate-800 bg-slate-950 space-y-3">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">GET</span>
+                <span class="font-mono text-xs font-semibold text-white">/search-external-sources/</span>
+              </div>
+              <span id="badge-search-external" class="text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">Untested</span>
+            </div>
+            <p class="text-xs text-slate-400">External sources retrieval probe (handles both with and without trailing slash).</p>
+            <div class="flex items-center justify-between pt-1">
+              <div class="flex gap-2">
+                <button onclick="runEndpointTest('search-external', 'GET', '/search-external-sources/')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-xs transition font-medium flex items-center gap-1.5">
+                  <i class="fa-solid fa-play text-[10px]"></i> Test with /
+                </button>
+                <button onclick="runEndpointTest('search-external', 'POST', '/search-external-sources')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 rounded text-xs transition font-medium">
+                  Test POST
+                </button>
+              </div>
+              <span id="latency-search-external" class="text-[11px] font-mono text-slate-500"></span>
+            </div>
+            <pre id="output-search-external" class="hidden p-2.5 bg-slate-900 border border-slate-800/80 rounded text-[11px] font-mono text-slate-300 overflow-x-auto max-h-36 leading-relaxed"></pre>
+          </div>
+
+          <!-- Card 4: /agents/codebase-retrieval -->
+          <div class="p-4 rounded-xl border border-slate-800 bg-slate-950 space-y-3">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400">POST</span>
+                <span class="font-mono text-xs font-semibold text-white">/agents/codebase-retrieval</span>
+              </div>
+              <span id="badge-codebase-retrieval" class="text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">Untested</span>
+            </div>
+            <p class="text-xs text-slate-400">Official Agent codebase retrieval endpoint used by Augment Code & Agent Tools.</p>
+            <div>
+              <input type="text" id="test-retrieval-query" value="Trace authentication flow" placeholder="Information request" class="w-full bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500">
+            </div>
+            <div class="flex items-center justify-between pt-1">
+              <button onclick="runEndpointTest('codebase-retrieval', 'POST', '/agents/codebase-retrieval')" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-xs transition font-medium flex items-center gap-1.5 shadow-md shadow-indigo-600/20">
+                <i class="fa-solid fa-play text-[10px]"></i> Test Retrieval
+              </button>
+              <span id="latency-codebase-retrieval" class="text-[11px] font-mono text-slate-500"></span>
+            </div>
+            <pre id="output-codebase-retrieval" class="hidden p-2.5 bg-slate-900 border border-slate-800/80 rounded text-[11px] font-mono text-slate-300 overflow-x-auto max-h-36 leading-relaxed"></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 4: API Reference -->
       <div id="tab-docs" class="hidden p-6 space-y-6">
         <div>
-          <h3 class="text-base font-semibold text-white">Endpoint Endpoints Reference</h3>
+          <h3 class="text-base font-semibold text-white">Endpoints Reference</h3>
           <p class="text-xs text-slate-400 mt-1">Available Serverless and Streamable HTTP endpoints on this instance.</p>
         </div>
 
         <div class="space-y-3">
+          <div class="p-4 rounded-lg border border-slate-800 bg-slate-950 flex items-center justify-between">
+            <div class="space-y-1">
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-bold px-2 py-0.5 rounded bg-blue-500/20 text-blue-400">POST</span>
+                <span class="font-mono text-xs text-white">/agents/codebase-retrieval</span>
+              </div>
+              <p class="text-xs text-slate-400">Semantic Codebase Retrieval for Augment Code extension (injection node -20) & AI Agents.</p>
+            </div>
+            <span class="text-xs text-slate-500 font-mono">Agent Retrieval</span>
+          </div>
+
+          <div class="p-4 rounded-lg border border-slate-800 bg-slate-950 flex items-center justify-between">
+            <div class="space-y-1">
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400">GET / POST</span>
+                <span class="font-mono text-xs text-white">/get-models & /augment/get-models</span>
+              </div>
+              <p class="text-xs text-slate-400">Health probe and model discovery compatibility endpoint for Augment Code.</p>
+            </div>
+            <span class="text-xs text-slate-500 font-mono">Compatibility</span>
+          </div>
+
+          <div class="p-4 rounded-lg border border-slate-800 bg-slate-950 flex items-center justify-between">
+            <div class="space-y-1">
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400">GET / POST</span>
+                <span class="font-mono text-xs text-white">/context-canvas/list</span>
+              </div>
+              <p class="text-xs text-slate-400">Context canvas node discovery for Augment Code integration.</p>
+            </div>
+            <span class="text-xs text-slate-500 font-mono">Compatibility</span>
+          </div>
+
+          <div class="p-4 rounded-lg border border-slate-800 bg-slate-950 flex items-center justify-between">
+            <div class="space-y-1">
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400">GET / POST</span>
+                <span class="font-mono text-xs text-white">/search-external-sources/</span>
+              </div>
+              <p class="text-xs text-slate-400">External sources documentation search probe (supports trailing slash).</p>
+            </div>
+            <span class="text-xs text-slate-500 font-mono">Compatibility</span>
+          </div>
+
           <div class="p-4 rounded-lg border border-slate-800 bg-slate-950 flex items-center justify-between">
             <div class="space-y-1">
               <div class="flex items-center gap-2">
@@ -386,7 +552,7 @@
 
     // Tab Switching
     function switchTab(tab) {
-      ['playground', 'mcp-config', 'docs'].forEach(t => {
+      ['playground', 'mcp-config', 'endpoints', 'docs'].forEach(t => {
         document.getElementById(`tab-${t}`).classList.toggle('hidden', t !== tab);
         const btn = document.getElementById(`tab-btn-${t}`);
         if (t === tab) {
@@ -394,6 +560,7 @@
           btn.querySelector('i').className = btn.querySelector('i').className.replace('text-slate-400', 'text-indigo-400');
         } else {
           btn.className = 'px-4 py-3 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2';
+          btn.querySelector('i').className = btn.querySelector('i').className.replace('text-indigo-400', 'text-slate-400');
         }
       });
     }
@@ -592,6 +759,119 @@
       toggleConfigModal();
       populateSnippets();
       alert('BYOK Settings saved! MCP snippet and Playground are now updated.');
+    }
+
+    // Endpoint Testing Suite
+    async function runEndpointTest(id, method, path) {
+      const badge = document.getElementById(`badge-${id}`);
+      const latency = document.getElementById(`latency-${id}`);
+      const output = document.getElementById(`output-${id}`);
+
+      badge.textContent = 'Testing...';
+      badge.className = 'text-[11px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 animate-pulse font-mono';
+      latency.textContent = '';
+      output.classList.add('hidden');
+
+      const startTime = performance.now();
+
+      try {
+        const headers = { 'Content-Type': 'application/json' };
+        const embKey = localStorage.getItem('ace_emb_key');
+        const embBase = localStorage.getItem('ace_emb_base');
+        const embModel = localStorage.getItem('ace_emb_model');
+        const embDim = localStorage.getItem('ace_emb_dim');
+        const rerankKey = localStorage.getItem('ace_rerank_key');
+        const rerankBase = localStorage.getItem('ace_rerank_base');
+        const rerankModel = localStorage.getItem('ace_rerank_model');
+
+        if (embKey) headers['x-embeddings-api-key'] = embKey;
+        if (embBase) headers['x-embeddings-base-url'] = embBase;
+        if (embModel) headers['x-embeddings-model'] = embModel;
+        if (embDim) headers['x-embeddings-dimensions'] = embDim;
+        if (rerankKey) headers['x-rerank-api-key'] = rerankKey;
+        if (rerankBase) headers['x-rerank-base-url'] = rerankBase;
+        if (rerankModel) headers['x-rerank-model'] = rerankModel;
+
+        const options = { method, headers };
+        if (method === 'POST') {
+          if (id === 'codebase-retrieval') {
+            const queryInput = document.getElementById('test-retrieval-query');
+            const query = queryInput ? queryInput.value.trim() : 'Trace authentication flow';
+            options.body = JSON.stringify({
+              information_request: query || 'Trace authentication flow',
+              repo_path: 'default'
+            });
+          } else {
+            options.body = JSON.stringify({});
+          }
+        }
+
+        const res = await fetch(path, options);
+        const duration = Math.round(performance.now() - startTime);
+        latency.textContent = `${duration}ms (${res.status})`;
+
+        let data;
+        const text = await res.text();
+        try {
+          data = JSON.parse(text);
+        } catch {
+          data = text;
+        }
+
+        output.classList.remove('hidden');
+        output.textContent = typeof data === 'object' ? JSON.stringify(data, null, 2) : data;
+
+        if (res.ok) {
+          badge.textContent = `${res.status} OK`;
+          badge.className = 'text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 font-mono';
+          return true;
+        } else {
+          badge.textContent = `${res.status} Error`;
+          badge.className = 'text-[11px] px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-400 font-mono';
+          return false;
+        }
+      } catch (err) {
+        const duration = Math.round(performance.now() - startTime);
+        latency.textContent = `${duration}ms`;
+        badge.textContent = 'Failed';
+        badge.className = 'text-[11px] px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-400 font-mono';
+        output.classList.remove('hidden');
+        output.textContent = `Fetch error: ${err.message}`;
+        return false;
+      }
+    }
+
+    async function testAllEndpoints() {
+      const btn = document.getElementById('test-all-btn');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>Running Tests...</span>';
+
+      const results = await Promise.all([
+        runEndpointTest('get-models', 'GET', '/get-models'),
+        runEndpointTest('context-canvas', 'GET', '/context-canvas/list'),
+        runEndpointTest('search-external', 'GET', '/search-external-sources/'),
+        runEndpointTest('codebase-retrieval', 'POST', '/agents/codebase-retrieval')
+      ]);
+
+      const passed = results.filter(Boolean).length;
+      const total = results.length;
+      const banner = document.getElementById('test-summary-banner');
+      const text = document.getElementById('test-summary-text');
+      const count = document.getElementById('test-summary-count');
+
+      banner.classList.remove('hidden');
+      count.textContent = `${passed}/${total} Passed`;
+
+      if (passed === total) {
+        banner.className = 'p-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 text-xs flex items-center justify-between';
+        text.innerHTML = '<span class="flex items-center gap-2"><i class="fa-solid fa-circle-check text-emerald-400"></i> All 4 endpoints operational!</span>';
+      } else {
+        banner.className = 'p-3 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-300 text-xs flex items-center justify-between';
+        text.innerHTML = '<span class="flex items-center gap-2"><i class="fa-solid fa-triangle-exclamation text-amber-400"></i> Some endpoints returned non-200 responses.</span>';
+      }
+
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fa-solid fa-play"></i><span>Run All Tests</span>';
     }
 
     // Init

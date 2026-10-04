@@ -35,6 +35,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     url.includes('/context-canvas/list') ||
     url.includes('/search-external-sources') ||
     url.includes('/augment/get-models') ||
+    url.includes('/get-models') ||
     url.includes('/get-implicit-external-sources')
   ) {
     res.setHeader('Content-Type', 'application/json');

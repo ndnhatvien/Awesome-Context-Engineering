@@ -1691,6 +1691,7 @@ const ADMIN_HTML_TEMPLATE = `<!DOCTYPE html>
         <div class="tabs">
           <div class="tab active" data-tab="mcp" id="tab-mcp">MCP Integration</div>
           <div class="tab" data-tab="tokens" id="tab-tokens">API Tokens</div>
+          <div class="tab" data-tab="endpoints" id="tab-endpoints">Endpoint Tester</div>
           <div class="tab" data-tab="system" id="tab-system">System Info</div>
         </div>
         
@@ -1813,6 +1814,76 @@ const ADMIN_HTML_TEMPLATE = `<!DOCTYPE html>
             </div>
             <div id="tokens-list" style="display: flex; flex-direction: column; gap: 10px;">
               <div style="color: var(--text-secondary); font-size: 13px; text-align: center; padding: 20px;">Enter a User ID and click Load to view tokens</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-content" data-content="endpoints">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <div>
+              <h3 style="font-size: 16px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px;">Endpoints Testing Suite</h3>
+              <p style="font-size: 13px; color: var(--text-secondary);">Live test and verify compatibility endpoints for Augment Code, AI Agents, and MCP tools.</p>
+            </div>
+            <button onclick="testAdminEndpoints()" id="admin-test-all-btn" class="btn" style="padding: 8px 16px; font-size: 13px;">Run All Tests</button>
+          </div>
+
+          <div id="admin-test-summary" style="display: none; padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 13px; font-weight: 500;"></div>
+
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px;">
+            <!-- /get-models -->
+            <div style="background: var(--input-bg); border: 1px solid var(--input-border); border-radius: 8px; padding: 16px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span style="font-family: monospace; font-size: 13px; font-weight: 600; color: var(--text-primary);">/get-models</span>
+                <span id="admin-badge-get-models" style="font-size: 11px; padding: 2px 8px; border-radius: 4px; background: rgba(255,255,255,0.06); color: var(--text-secondary);">Untested</span>
+              </div>
+              <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">Health & model discovery probe</p>
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <button onclick="runAdminTest('get-models', 'GET', '/get-models')" class="btn" style="padding: 6px 12px; font-size: 12px;">Test GET</button>
+                <span id="admin-latency-get-models" style="font-size: 11px; color: var(--text-secondary); font-family: monospace;"></span>
+              </div>
+              <pre id="admin-output-get-models" style="display: none; margin-top: 10px; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 6px; font-size: 11px; font-family: monospace; max-height: 120px; overflow: auto; color: var(--text-primary);"></pre>
+            </div>
+
+            <!-- /context-canvas/list -->
+            <div style="background: var(--input-bg); border: 1px solid var(--input-border); border-radius: 8px; padding: 16px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span style="font-family: monospace; font-size: 13px; font-weight: 600; color: var(--text-primary);">/context-canvas/list</span>
+                <span id="admin-badge-context-canvas" style="font-size: 11px; padding: 2px 8px; border-radius: 4px; background: rgba(255,255,255,0.06); color: var(--text-secondary);">Untested</span>
+              </div>
+              <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">Augment Context Canvas probe</p>
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <button onclick="runAdminTest('context-canvas', 'GET', '/context-canvas/list')" class="btn" style="padding: 6px 12px; font-size: 12px;">Test GET</button>
+                <span id="admin-latency-context-canvas" style="font-size: 11px; color: var(--text-secondary); font-family: monospace;"></span>
+              </div>
+              <pre id="admin-output-context-canvas" style="display: none; margin-top: 10px; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 6px; font-size: 11px; font-family: monospace; max-height: 120px; overflow: auto; color: var(--text-primary);"></pre>
+            </div>
+
+            <!-- /search-external-sources/ -->
+            <div style="background: var(--input-bg); border: 1px solid var(--input-border); border-radius: 8px; padding: 16px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span style="font-family: monospace; font-size: 13px; font-weight: 600; color: var(--text-primary);">/search-external-sources/</span>
+                <span id="admin-badge-search-external" style="font-size: 11px; padding: 2px 8px; border-radius: 4px; background: rgba(255,255,255,0.06); color: var(--text-secondary);">Untested</span>
+              </div>
+              <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">External sources probe (trailing slash)</p>
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <button onclick="runAdminTest('search-external', 'GET', '/search-external-sources/')" class="btn" style="padding: 6px 12px; font-size: 12px;">Test GET</button>
+                <span id="admin-latency-search-external" style="font-size: 11px; color: var(--text-secondary); font-family: monospace;"></span>
+              </div>
+              <pre id="admin-output-search-external" style="display: none; margin-top: 10px; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 6px; font-size: 11px; font-family: monospace; max-height: 120px; overflow: auto; color: var(--text-primary);"></pre>
+            </div>
+
+            <!-- /agents/codebase-retrieval -->
+            <div style="background: var(--input-bg); border: 1px solid var(--input-border); border-radius: 8px; padding: 16px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <span style="font-family: monospace; font-size: 13px; font-weight: 600; color: var(--text-primary);">/agents/codebase-retrieval</span>
+                <span id="admin-badge-codebase-retrieval" style="font-size: 11px; padding: 2px 8px; border-radius: 4px; background: rgba(255,255,255,0.06); color: var(--text-secondary);">Untested</span>
+              </div>
+              <p style="font-size: 12px; color: var(--text-secondary); margin-bottom: 12px;">Agent codebase retrieval endpoint</p>
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <button onclick="runAdminTest('codebase-retrieval', 'POST', '/agents/codebase-retrieval')" class="btn" style="padding: 6px 12px; font-size: 12px; background: var(--primary);">Test POST</button>
+                <span id="admin-latency-codebase-retrieval" style="font-size: 11px; color: var(--text-secondary); font-family: monospace;"></span>
+              </div>
+              <pre id="admin-output-codebase-retrieval" style="display: none; margin-top: 10px; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 6px; font-size: 11px; font-family: monospace; max-height: 120px; overflow: auto; color: var(--text-primary);"></pre>
             </div>
           </div>
         </div>
@@ -2148,6 +2219,105 @@ const ADMIN_HTML_TEMPLATE = `<!DOCTYPE html>
       workspaceInput.value = currentBrowsingPath;
       hideModal();
     });
+
+    // Endpoint Tester Functions
+    window.runAdminTest = async function(id, method, path) {
+      const badge = document.getElementById('admin-badge-' + id);
+      const latency = document.getElementById('admin-latency-' + id);
+      const output = document.getElementById('admin-output-' + id);
+
+      badge.textContent = 'Testing...';
+      badge.style.background = 'rgba(245, 158, 11, 0.2)';
+      badge.style.color = 'var(--warning)';
+      latency.textContent = '';
+      output.style.display = 'none';
+
+      const startTime = performance.now();
+
+      try {
+        const headers = { 'Content-Type': 'application/json' };
+        const options = { method: method, headers: headers };
+        if (method === 'POST') {
+          if (id === 'codebase-retrieval') {
+            options.body = JSON.stringify({
+              information_request: 'Trace authentication flow',
+              repo_path: document.getElementById('input-workspace') ? document.getElementById('input-workspace').value : 'default'
+            });
+          } else {
+            options.body = JSON.stringify({});
+          }
+        }
+
+        const res = await fetch(path, options);
+        const duration = Math.round(performance.now() - startTime);
+        latency.textContent = duration + 'ms (' + res.status + ')';
+
+        let data;
+        const text = await res.text();
+        try {
+          data = JSON.parse(text);
+        } catch(e) {
+          data = text;
+        }
+
+        output.style.display = 'block';
+        output.textContent = typeof data === 'object' ? JSON.stringify(data, null, 2) : data;
+
+        if (res.ok) {
+          badge.textContent = res.status + ' OK';
+          badge.style.background = 'rgba(16, 185, 129, 0.2)';
+          badge.style.color = 'var(--success)';
+          return true;
+        } else {
+          badge.textContent = res.status + ' Error';
+          badge.style.background = 'rgba(239, 68, 68, 0.2)';
+          badge.style.color = 'var(--danger)';
+          return false;
+        }
+      } catch (err) {
+        const duration = Math.round(performance.now() - startTime);
+        latency.textContent = duration + 'ms';
+        badge.textContent = 'Failed';
+        badge.style.background = 'rgba(239, 68, 68, 0.2)';
+        badge.style.color = 'var(--danger)';
+        output.style.display = 'block';
+        output.textContent = 'Fetch error: ' + err.message;
+        return false;
+      }
+    };
+
+    window.testAdminEndpoints = async function() {
+      const btn = document.getElementById('admin-test-all-btn');
+      btn.disabled = true;
+      btn.textContent = 'Running Tests...';
+
+      const results = await Promise.all([
+        window.runAdminTest('get-models', 'GET', '/get-models'),
+        window.runAdminTest('context-canvas', 'GET', '/context-canvas/list'),
+        window.runAdminTest('search-external', 'GET', '/search-external-sources/'),
+        window.runAdminTest('codebase-retrieval', 'POST', '/agents/codebase-retrieval')
+      ]);
+
+      const passed = results.filter(Boolean).length;
+      const total = results.length;
+      const summary = document.getElementById('admin-test-summary');
+
+      summary.style.display = 'block';
+      if (passed === total) {
+        summary.style.background = 'rgba(16, 185, 129, 0.15)';
+        summary.style.color = 'var(--success)';
+        summary.style.border = '1px solid rgba(16, 185, 129, 0.3)';
+        summary.textContent = '✓ All ' + total + ' endpoints operational (' + passed + '/' + total + ' passed)';
+      } else {
+        summary.style.background = 'rgba(245, 158, 11, 0.15)';
+        summary.style.color = 'var(--warning)';
+        summary.style.border = '1px solid rgba(245, 158, 11, 0.3)';
+        summary.textContent = '⚠ ' + passed + '/' + total + ' endpoints passed';
+      }
+
+      btn.disabled = false;
+      btn.textContent = 'Run All Tests';
+    };
   </script>
 </body>
 </html>`;

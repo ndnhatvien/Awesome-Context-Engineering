@@ -41,6 +41,10 @@
       "dest": "/api/health.ts"
     },
     {
+      "src": "/get-models(/.*)?",
+      "dest": "/api/health.ts"
+    },
+    {
       "src": "/augment/get-models(/.*)?",
       "dest": "/api/health.ts"
     },
