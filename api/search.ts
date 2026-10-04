@@ -36,21 +36,16 @@ export default async function handler(
     return;
   }
 
-  if (req.method !== 'POST' && req.method !== 'GET') {
+  if (req.method !== 'POST') {
     res.statusCode = 405;
     res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify({ error: 'Method Not Allowed, use GET or POST' }));
+    res.end(JSON.stringify({ error: 'Method Not Allowed, use POST' }));
     return;
   }
 
   try {
     let payload: Record<string, unknown> = {};
-    if (req.method === 'GET') {
-      const url = new URL(req.url || '', 'http://localhost');
-      for (const [key, value] of url.searchParams.entries()) {
-        payload[key] = value;
-      }
-    } else if (req.body && typeof req.body === 'object') {
+    if (req.body && typeof req.body === 'object') {
       payload = req.body as Record<string, unknown>;
     } else {
       const raw = await readBody(req);
