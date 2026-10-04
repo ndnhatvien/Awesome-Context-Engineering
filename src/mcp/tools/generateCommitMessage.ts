@@ -23,7 +23,7 @@ export const generateCommitMessageSchema = z.object({
 
 export async function handleGenerateCommitMessage(
   args: z.infer<typeof generateCommitMessageSchema>,
-) {
+): Promise<{ content: Array<{ type: 'text'; text: string }>; isError?: boolean }> {
   const { repo_path, style = 'conventional', include_body = true } = args;
 
   logger.info({ repo_path, style }, 'Generating commit message');

@@ -202,7 +202,9 @@ export function detectProjectTasks(rootPath: string): DetectedTask[] {
 /**
  * MCP tool handler
  */
-export async function handleDetectTasks(args: z.infer<typeof detectTasksSchema>) {
+export async function handleDetectTasks(
+  args: z.infer<typeof detectTasksSchema>,
+): Promise<{ content: Array<{ type: 'text'; text: string }>; isError?: boolean }> {
   const { repo_path } = args;
 
   logger.info({ repo_path }, 'Detecting project tasks');

@@ -4,7 +4,8 @@
         "module": "ESNext",
         "moduleResolution": "Bundler",
         "lib": [
-            "ES2022"
+            "ES2022",
+            "DOM"
         ],
         "types": [
             "node"
@@ -16,6 +17,7 @@
         "verbatimModuleSyntax": true
     },
     "include": [
-        "src/**/*.ts"
+        "src/**/*.ts",
+        "api/**/*.ts"
     ]
 }
