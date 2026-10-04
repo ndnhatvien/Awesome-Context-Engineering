@@ -13,12 +13,20 @@
     "api/health.ts": {
       "memory": 256,
       "maxDuration": 10
+    },
+    "api/tokens.ts": {
+      "memory": 256,
+      "maxDuration": 15
     }
   },
   "routes": [
     {
       "src": "/api/mcp",
       "dest": "/api/mcp.ts"
+    },
+    {
+      "src": "/api/tokens(/.*)?",
+      "dest": "/api/tokens.ts"
     },
     {
       "src": "/api/search",

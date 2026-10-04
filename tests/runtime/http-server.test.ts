@@ -233,6 +233,68 @@ describe('HTTP Server Tests', { concurrency: 1 }, () => {
       await new Promise((resolve) => setTimeout(resolve, 200));
     }
   });
+  test('/api/tokens CRUD: tao token, lay danh sach va thu hoi token', async () => {
+    const app = createHttpServerApp(TEST_HOST);
+    const server = app.listen(TEST_PORT, TEST_HOST);
+    await new Promise((resolve) => setTimeout(resolve, 200));
+
+    try {
+      // 1. POST /api/tokens
+      const createRes = await httpRequest(
+        {
+          hostname: TEST_HOST,
+          port: TEST_PORT,
+          path: '/api/tokens',
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        },
+        JSON.stringify({
+          userId: 'test-user',
+          description: 'Test Token for MCP',
+          expiresInDays: 30,
+        }),
+      );
+
+      assert.equal(createRes.statusCode, 201);
+      const createData = JSON.parse(createRes.body);
+      assert.equal(createData.success, true);
+      assert.ok(createData.token.startsWith('ace_'));
+      assert.ok(createData.tokenId);
+      assert.equal(createData.userId, 'test-user');
+
+      // 2. GET /api/tokens
+      const listRes = await httpRequest({
+        hostname: TEST_HOST,
+        port: TEST_PORT,
+        path: '/api/tokens?userId=test-user',
+        method: 'GET',
+      });
+
+      assert.equal(listRes.statusCode, 200);
+      const listData = JSON.parse(listRes.body);
+      assert.equal(listData.success, true);
+      assert.ok(Array.isArray(listData.tokens));
+      const found = listData.tokens.find((t: any) => t.id === createData.tokenId);
+      assert.ok(found);
+      assert.equal(found.description, 'Test Token for MCP');
+
+      // 3. DELETE /api/tokens/:tokenId
+      const deleteRes = await httpRequest({
+        hostname: TEST_HOST,
+        port: TEST_PORT,
+        path: `/api/tokens/${createData.tokenId}`,
+        method: 'DELETE',
+      });
+
+      assert.equal(deleteRes.statusCode, 200);
+      const deleteData = JSON.parse(deleteRes.body);
+      assert.equal(deleteData.success, true);
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+  });
+
   test('404 cho unknown paths', async () => {
     const app = createHttpServerApp(TEST_HOST);
     const server = app.listen(TEST_PORT, TEST_HOST);

@@ -2947,6 +2947,59 @@ export function createHttpServerApp(_host = '127.0.0.1'): Express {
     }
   });
 
+  // Public/Dashboard API Token Management Endpoints
+  app.post('/api/tokens', async (req: Request, res: Response) => {
+    try {
+      const { createToken } = await import('../auth/tokenManager.js');
+      const { userId = 'developer', description, expiresInDays } = req.body || {};
+
+      const result = createToken({
+        userId: String(userId),
+        description: description ? String(description) : undefined,
+        expiresInDays: expiresInDays ? parseInt(String(expiresInDays), 10) : undefined,
+      });
+
+      res.status(201).json({
+        success: true,
+        token: result.token,
+        tokenId: result.id,
+        userId: String(userId),
+        description: description || undefined,
+        createdAt: Date.now(),
+        expiresAt: expiresInDays
+          ? Date.now() + parseInt(String(expiresInDays), 10) * 86400000
+          : null,
+      });
+    } catch (err) {
+      logger.error({ error: (err as Error).message }, 'Failed to create token');
+      res.status(500).json({ error: (err as Error).message || 'Failed to create token' });
+    }
+  });
+
+  app.get('/api/tokens', async (req: Request, res: Response) => {
+    try {
+      const { listTokens } = await import('../auth/tokenManager.js');
+      const userId = (req.query.userId as string) || 'developer';
+      const tokens = listTokens(userId);
+      res.json({ success: true, tokens });
+    } catch (err) {
+      logger.error({ error: (err as Error).message }, 'Failed to list tokens');
+      res.status(500).json({ error: (err as Error).message || 'Failed to list tokens' });
+    }
+  });
+
+  app.delete('/api/tokens/:tokenId', async (req: Request, res: Response) => {
+    try {
+      const { revokeToken } = await import('../auth/tokenManager.js');
+      const { tokenId } = req.params;
+      const success = revokeToken(tokenId as string);
+      res.json({ success });
+    } catch (err) {
+      logger.error({ error: (err as Error).message }, 'Failed to revoke token');
+      res.status(500).json({ error: (err as Error).message || 'Failed to revoke token' });
+    }
+  });
+
   // Setup Streamable HTTPServer Transport
   const transport = new StreamableHTTPServerTransport();
 

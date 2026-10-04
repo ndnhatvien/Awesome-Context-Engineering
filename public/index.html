@@ -107,6 +107,10 @@
           <i class="fa-solid fa-plug text-slate-400"></i>
           <span>MCP Client Setup</span>
         </button>
+        <button onclick="switchTab('tokens')" id="tab-btn-tokens" class="px-4 py-3 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2">
+          <i class="fa-solid fa-key text-slate-400"></i>
+          <span>API Tokens</span>
+        </button>
         <button onclick="switchTab('endpoints')" id="tab-btn-endpoints" class="px-4 py-3 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2">
           <i class="fa-solid fa-vial-circle-check text-slate-400"></i>
           <span>Endpoint Tester</span>
@@ -223,10 +227,183 @@
           </div>
         </div>
 
+        <div id="mcp-token-banner" class="p-3 rounded-lg border border-slate-800 bg-slate-900/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-key text-indigo-400"></i>
+            <span id="mcp-token-text" class="text-slate-300">Active API Token: None (anonymous mode)</span>
+          </div>
+          <button onclick="switchTab('tokens')" class="text-indigo-400 hover:text-indigo-300 font-medium text-left sm:text-right">Manage / Create Token &rarr;</button>
+        </div>
+
         <div class="p-4 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-300 flex items-start gap-3">
           <i class="fa-solid fa-circle-info text-base mt-0.5"></i>
           <div>
             <span class="font-semibold">Zero Timeout Heartbeat:</span> ACE on Vercel emits periodic SSE keepalive pulses during heavy index & rerank pipelines, preventing Claude Code and Cursor from disconnecting after 300s timeouts.
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: API Tokens -->
+      <div id="tab-tokens" class="hidden p-6 space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+          <div>
+            <h3 class="text-base font-semibold text-white flex items-center gap-2">
+              <i class="fa-solid fa-key text-indigo-400"></i>
+              <span>API Token Management</span>
+            </h3>
+            <p class="text-xs text-slate-400 mt-1">Generate and manage Bearer access tokens for MCP clients (Cursor, Claude Desktop, Cline) and automated REST integrations.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <span id="active-token-indicator" class="text-xs px-2.5 py-1 rounded-full bg-slate-800 text-slate-400 border border-slate-700 flex items-center gap-1.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span>
+              <span>No Active Token</span>
+            </span>
+          </div>
+        </div>
+
+        <!-- Token Creation & Active Display Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          <!-- Column 1 & 2: Token Generator -->
+          <div class="lg:col-span-2 space-y-6">
+            <div class="p-5 rounded-xl border border-slate-800 bg-slate-950 space-y-4">
+              <div class="flex items-center justify-between">
+                <div class="text-xs font-semibold uppercase text-slate-400 tracking-wider">Create Access Token</div>
+                <span class="text-[11px] text-slate-500">Format: ace_base64</span>
+              </div>
+
+              <form id="create-token-form" onsubmit="handleCreateToken(event)" class="space-y-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">User / Client ID</label>
+                    <input type="text" id="new-token-userId" value="developer" required
+                      class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 transition font-mono" placeholder="developer">
+                  </div>
+                  <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Expiration Period</label>
+                    <select id="new-token-expires" class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 transition">
+                      <option value="30">30 Days</option>
+                      <option value="90">90 Days</option>
+                      <option value="365" selected>1 Year (365 Days)</option>
+                      <option value="0">Never Expires</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label class="block text-xs font-medium text-slate-300 mb-1">Description / Client Name (Optional)</label>
+                  <input type="text" id="new-token-desc" placeholder="e.g. Cursor IDE Workstation, Claude Desktop, CI/CD Runner"
+                    class="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500 transition">
+                </div>
+
+                <div class="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <button type="submit" id="btn-create-token" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-sm font-medium transition shadow-lg shadow-indigo-600/25 flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-plus"></i>
+                    <span>Generate API Token</span>
+                  </button>
+                  <span class="text-xs text-slate-500">Auto-saved to MCP snippets upon creation</span>
+                </div>
+              </form>
+
+              <!-- Result Alert (Hidden by default) -->
+              <div id="new-token-result" class="hidden p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/30 space-y-3">
+                <div class="flex items-center justify-between">
+                  <div class="text-xs font-semibold text-emerald-400 flex items-center gap-1.5">
+                    <i class="fa-solid fa-circle-check"></i>
+                    <span>Token Generated Successfully!</span>
+                  </div>
+                  <span class="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300">Active</span>
+                </div>
+                <p class="text-xs text-slate-400">Save this token now. It has been automatically activated for your MCP Client Setup and Playground requests.</p>
+                <div class="flex items-center gap-2">
+                  <div class="flex-1 bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs font-mono text-emerald-300 select-all overflow-x-auto" id="new-token-display"></div>
+                  <button onclick="copyGeneratedToken()" id="btn-copy-token" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-xs font-medium transition shrink-0 flex items-center gap-1">
+                    <i class="fa-regular fa-copy"></i>
+                    <span>Copy</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Token Management Table -->
+            <div class="p-5 rounded-xl border border-slate-800 bg-slate-950 space-y-4">
+              <div class="flex items-center justify-between">
+                <div>
+                  <h4 class="text-xs font-semibold uppercase text-slate-400 tracking-wider">Registered Tokens</h4>
+                  <p class="text-xs text-slate-500 mt-0.5">Tokens currently active on this instance or in your browser</p>
+                </div>
+                <div class="flex items-center gap-2">
+                  <button onclick="refreshTokensList()" class="text-xs px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-rotate text-xs"></i>
+                    <span>Refresh</span>
+                  </button>
+                </div>
+              </div>
+
+              <div id="tokens-table-container" class="space-y-2">
+                <div class="text-center py-6 text-xs text-slate-500">Loading tokens...</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Column 3: Usage Instructions & Active Token Card -->
+          <div class="space-y-6">
+            <!-- Active Token Card -->
+            <div class="p-5 rounded-xl border border-slate-800 bg-slate-950 space-y-4">
+              <div class="text-xs font-semibold uppercase text-slate-400 tracking-wider flex items-center justify-between">
+                <span>Current Active Token</span>
+                <span id="active-token-status" class="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-400 font-mono">None</span>
+              </div>
+              
+              <div class="p-3 rounded-lg bg-slate-900 border border-slate-800 space-y-2">
+                <div class="text-[11px] font-mono text-slate-500 break-all" id="active-token-text">No active token saved in dashboard</div>
+                <div class="flex items-center justify-between pt-1">
+                  <button onclick="copyActiveToken()" id="btn-copy-active-token" class="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1">
+                    <i class="fa-regular fa-copy"></i>
+                    <span>Copy Token</span>
+                  </button>
+                  <button onclick="clearActiveToken()" class="text-xs text-rose-400 hover:text-rose-300 flex items-center gap-1">
+                    <i class="fa-solid fa-trash-can"></i>
+                    <span>Clear</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="text-xs text-slate-400 leading-relaxed">
+                When active, all MCP requests and REST queries automatically include this token in the <code class="text-indigo-300 font-mono">Authorization: Bearer</code> header.
+              </div>
+            </div>
+
+            <!-- Quick Integration Guide -->
+            <div class="p-5 rounded-xl border border-slate-800 bg-slate-950 space-y-3">
+              <div class="text-xs font-semibold uppercase text-slate-400 tracking-wider">How to Use Your Token</div>
+              
+              <div class="space-y-3 text-xs text-slate-300">
+                <div class="space-y-1">
+                  <div class="font-medium text-white flex items-center gap-1.5">
+                    <i class="fa-solid fa-shield-halved text-indigo-400"></i>
+                    <span>HTTP Bearer Header:</span>
+                  </div>
+                  <pre class="p-2 rounded bg-slate-900 border border-slate-800 text-[11px] font-mono text-indigo-300 overflow-x-auto">Authorization: Bearer ace_your_token_here</pre>
+                </div>
+
+                <div class="space-y-1">
+                  <div class="font-medium text-white flex items-center gap-1.5">
+                    <i class="fa-solid fa-code text-indigo-400"></i>
+                    <span>Cursor / Claude Desktop:</span>
+                  </div>
+                  <p class="text-slate-400">Check the <a href="javascript:switchTab('mcp-config')" class="text-indigo-400 underline">MCP Client Setup</a> tab — your configuration JSON is already pre-populated with this token!</p>
+                </div>
+
+                <div class="space-y-1">
+                  <div class="font-medium text-white flex items-center gap-1.5">
+                    <i class="fa-solid fa-terminal text-indigo-400"></i>
+                    <span>CLI or Query Param:</span>
+                  </div>
+                  <pre class="p-2 rounded bg-slate-900 border border-slate-800 text-[11px] font-mono text-indigo-300 overflow-x-auto">http://.../api/mcp?token=ace_your_token_here</pre>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -552,17 +729,23 @@
 
     // Tab Switching
     function switchTab(tab) {
-      ['playground', 'mcp-config', 'endpoints', 'docs'].forEach(t => {
-        document.getElementById(`tab-${t}`).classList.toggle('hidden', t !== tab);
+      ['playground', 'mcp-config', 'tokens', 'endpoints', 'docs'].forEach(t => {
+        const el = document.getElementById(`tab-${t}`);
+        if (el) el.classList.toggle('hidden', t !== tab);
         const btn = document.getElementById(`tab-btn-${t}`);
-        if (t === tab) {
-          btn.className = 'px-4 py-3 text-sm font-medium border-b-2 border-indigo-500 text-white flex items-center gap-2';
-          btn.querySelector('i').className = btn.querySelector('i').className.replace('text-slate-400', 'text-indigo-400');
-        } else {
-          btn.className = 'px-4 py-3 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2';
-          btn.querySelector('i').className = btn.querySelector('i').className.replace('text-indigo-400', 'text-slate-400');
+        if (btn) {
+          if (t === tab) {
+            btn.className = 'px-4 py-3 text-sm font-medium border-b-2 border-indigo-500 text-white flex items-center gap-2';
+            btn.querySelector('i').className = btn.querySelector('i').className.replace('text-slate-400', 'text-indigo-400');
+          } else {
+            btn.className = 'px-4 py-3 text-sm font-medium border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center gap-2';
+            btn.querySelector('i').className = btn.querySelector('i').className.replace('text-indigo-400', 'text-slate-400');
+          }
         }
       });
+      if (tab === 'tokens') {
+        refreshTokensList();
+      }
     }
 
     // Presets
@@ -603,6 +786,7 @@
     // Populate Dynamic MCP Snippets
     function populateSnippets() {
       const headers = {};
+      const apiToken = localStorage.getItem('ace_api_token');
       const embKey = localStorage.getItem('ace_emb_key');
       const embBase = localStorage.getItem('ace_emb_base');
       const embModel = localStorage.getItem('ace_emb_model');
@@ -611,6 +795,7 @@
       const rerankBase = localStorage.getItem('ace_rerank_base');
       const rerankModel = localStorage.getItem('ace_rerank_model');
 
+      if (apiToken) headers['Authorization'] = `Bearer ${apiToken}`;
       if (embKey) headers['x-embeddings-api-key'] = embKey;
       if (embBase) headers['x-embeddings-base-url'] = embBase;
       if (embModel) headers['x-embeddings-model'] = embModel;
@@ -655,6 +840,7 @@
       const startTime = performance.now();
 
       const headers = { 'Content-Type': 'application/json' };
+      const apiToken = localStorage.getItem('ace_api_token');
       const embKey = localStorage.getItem('ace_emb_key');
       const embBase = localStorage.getItem('ace_emb_base');
       const embModel = localStorage.getItem('ace_emb_model');
@@ -663,6 +849,7 @@
       const rerankBase = localStorage.getItem('ace_rerank_base');
       const rerankModel = localStorage.getItem('ace_rerank_model');
 
+      if (apiToken) headers['Authorization'] = `Bearer ${apiToken}`;
       if (embKey) headers['x-embeddings-api-key'] = embKey;
       if (embBase) headers['x-embeddings-base-url'] = embBase;
       if (embModel) headers['x-embeddings-model'] = embModel;
@@ -776,6 +963,7 @@
 
       try {
         const headers = { 'Content-Type': 'application/json' };
+        const apiToken = localStorage.getItem('ace_api_token');
         const embKey = localStorage.getItem('ace_emb_key');
         const embBase = localStorage.getItem('ace_emb_base');
         const embModel = localStorage.getItem('ace_emb_model');
@@ -784,6 +972,7 @@
         const rerankBase = localStorage.getItem('ace_rerank_base');
         const rerankModel = localStorage.getItem('ace_rerank_model');
 
+        if (apiToken) headers['Authorization'] = `Bearer ${apiToken}`;
         if (embKey) headers['x-embeddings-api-key'] = embKey;
         if (embBase) headers['x-embeddings-base-url'] = embBase;
         if (embModel) headers['x-embeddings-model'] = embModel;
@@ -874,9 +1063,287 @@
       btn.innerHTML = '<i class="fa-solid fa-play"></i><span>Run All Tests</span>';
     }
 
+    // ============================================
+    // API Tokens Management Logic
+    // ============================================
+    function updateActiveTokenDisplay() {
+      const activeToken = localStorage.getItem('ace_api_token');
+      const indicator = document.getElementById('active-token-indicator');
+      const textEl = document.getElementById('active-token-text');
+      const statusBadge = document.getElementById('active-token-status');
+      const mcpBannerText = document.getElementById('mcp-token-text');
+
+      if (activeToken) {
+        const masked = activeToken.length > 16 
+          ? `${activeToken.substring(0, 8)}...${activeToken.substring(activeToken.length - 6)}` 
+          : activeToken;
+
+        if (indicator) {
+          indicator.className = 'text-xs px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5';
+          indicator.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span><span>Token Active</span>';
+        }
+        if (textEl) {
+          textEl.textContent = activeToken;
+          textEl.className = 'text-[11px] font-mono text-emerald-300 break-all select-all';
+        }
+        if (statusBadge) {
+          statusBadge.textContent = 'ACTIVE';
+          statusBadge.className = 'text-[10px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-mono font-semibold';
+        }
+        if (mcpBannerText) {
+          mcpBannerText.innerHTML = `Active API Token: <span class="font-mono text-emerald-300">${masked}</span> <span class="text-slate-500">(Included in headers)</span>`;
+        }
+      } else {
+        if (indicator) {
+          indicator.className = 'text-xs px-2.5 py-1 rounded-full bg-slate-800 text-slate-400 border border-slate-700 flex items-center gap-1.5';
+          indicator.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-slate-500"></span><span>No Active Token</span>';
+        }
+        if (textEl) {
+          textEl.textContent = 'No active token saved in dashboard';
+          textEl.className = 'text-[11px] font-mono text-slate-500';
+        }
+        if (statusBadge) {
+          statusBadge.textContent = 'NONE';
+          statusBadge.className = 'text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-400 font-mono';
+        }
+        if (mcpBannerText) {
+          mcpBannerText.textContent = 'Active API Token: None (anonymous mode)';
+        }
+      }
+    }
+
+    async function handleCreateToken(e) {
+      if (e) e.preventDefault();
+      const userId = document.getElementById('new-token-userId').value.trim() || 'developer';
+      const description = document.getElementById('new-token-desc').value.trim();
+      const expiresInDays = document.getElementById('new-token-expires').value;
+
+      const btn = document.getElementById('btn-create-token');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>Generating...</span>';
+
+      try {
+        const res = await fetch('/api/tokens', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId,
+            description: description || undefined,
+            expiresInDays: expiresInDays && expiresInDays !== '0' ? parseInt(expiresInDays, 10) : undefined,
+          }),
+        });
+
+        const data = await res.json();
+        if (data.success && data.token) {
+          localStorage.setItem('ace_api_token', data.token);
+
+          const tokenRecord = {
+            id: data.tokenId,
+            token: data.token,
+            userId: data.userId || userId,
+            description: data.description || description,
+            createdAt: data.createdAt || Date.now(),
+            expiresAt: data.expiresAt || (expiresInDays && expiresInDays !== '0' ? Date.now() + parseInt(expiresInDays, 10) * 86400000 : null),
+            isActive: 1,
+          };
+          saveLocalTokenRecord(tokenRecord);
+
+          const resultAlert = document.getElementById('new-token-result');
+          const tokenDisplay = document.getElementById('new-token-display');
+          if (tokenDisplay) tokenDisplay.textContent = data.token;
+          if (resultAlert) resultAlert.classList.remove('hidden');
+
+          document.getElementById('new-token-desc').value = '';
+
+          updateActiveTokenDisplay();
+          populateSnippets();
+          refreshTokensList();
+        } else {
+          alert('Failed to create token: ' + (data.error || 'Unknown error'));
+        }
+      } catch (err) {
+        alert('Error creating token: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-plus"></i><span>Generate API Token</span>';
+      }
+    }
+
+    function saveLocalTokenRecord(record) {
+      try {
+        const existing = JSON.parse(localStorage.getItem('ace_tokens_history') || '[]');
+        const updated = [record, ...existing.filter(t => t.id !== record.id)].slice(0, 30);
+        localStorage.setItem('ace_tokens_history', JSON.stringify(updated));
+      } catch {
+        // ignore
+      }
+    }
+
+    async function refreshTokensList() {
+      const container = document.getElementById('tokens-table-container');
+      if (!container) return;
+
+      const userId = document.getElementById('new-token-userId')?.value.trim() || 'developer';
+      let serverTokens = [];
+
+      try {
+        const res = await fetch(`/api/tokens?userId=${encodeURIComponent(userId)}`);
+        const data = await res.json();
+        if (data.success && Array.isArray(data.tokens)) {
+          serverTokens = data.tokens;
+        }
+      } catch {
+        // Fallback
+      }
+
+      let localTokens = [];
+      try {
+        localTokens = JSON.parse(localStorage.getItem('ace_tokens_history') || '[]');
+      } catch {
+        localTokens = [];
+      }
+
+      const tokenMap = new Map();
+      for (const t of localTokens) {
+        tokenMap.set(t.id, t);
+      }
+      for (const t of serverTokens) {
+        const existing = tokenMap.get(t.id);
+        tokenMap.set(t.id, { ...(existing || {}), ...t });
+      }
+
+      const allTokens = Array.from(tokenMap.values()).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+
+      if (allTokens.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-8 border border-dashed border-slate-800 rounded-lg text-slate-500 text-xs">
+            <i class="fa-solid fa-key text-slate-600 text-2xl mb-2 block"></i>
+            <span>No tokens registered yet. Generate your first API token above!</span>
+          </div>
+        `;
+        return;
+      }
+
+      const activeToken = localStorage.getItem('ace_api_token');
+
+      container.innerHTML = allTokens.map(token => {
+        const isCurrentActive = activeToken && (activeToken === token.token);
+        const createdDate = token.createdAt ? new Date(token.createdAt).toLocaleDateString() : 'N/A';
+        const expiresDate = token.expiresAt ? new Date(token.expiresAt).toLocaleDateString() : 'Never';
+        const isExpired = token.expiresAt && Date.now() > token.expiresAt;
+        const isActive = token.isActive !== 0 && !isExpired;
+
+        return `
+          <div class="p-3.5 rounded-lg border ${isCurrentActive ? 'border-indigo-500/50 bg-indigo-950/20' : 'border-slate-800 bg-slate-900/50'} space-y-2">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="font-mono text-xs font-semibold text-white">${token.id.substring(0, 12)}...</span>
+                ${token.description ? `<span class="text-xs text-slate-300 font-medium">· ${token.description}</span>` : ''}
+                ${isCurrentActive ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">Active in Dashboard</span>' : ''}
+              </div>
+              <span class="text-[10px] px-2 py-0.5 rounded font-mono font-medium ${isActive ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'}">
+                ${isActive ? 'ACTIVE' : (isExpired ? 'EXPIRED' : 'REVOKED')}
+              </span>
+            </div>
+            <div class="flex flex-wrap items-center justify-between text-[11px] text-slate-400 pt-1">
+              <div class="flex gap-4">
+                <span>Created: <span class="text-slate-300">${createdDate}</span></span>
+                <span>Expires: <span class="text-slate-300">${expiresDate}</span></span>
+                <span>User: <span class="text-slate-300">${token.userId || 'developer'}</span></span>
+              </div>
+              <div class="flex items-center gap-2 mt-2 sm:mt-0">
+                ${token.token && token.token !== '***' ? `
+                  <button onclick="useToken('${token.token}')" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs transition">
+                    Use Token
+                  </button>
+                  <button onclick="navigator.clipboard.writeText('${token.token}'); alert('Token copied!');" class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs transition">
+                    <i class="fa-regular fa-copy"></i>
+                  </button>
+                ` : ''}
+                ${isActive ? `
+                  <button onclick="revokeToken('${token.id}')" class="px-2 py-1 rounded bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 text-xs transition">
+                    Revoke
+                  </button>
+                ` : ''}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function useToken(token) {
+      localStorage.setItem('ace_api_token', token);
+      updateActiveTokenDisplay();
+      populateSnippets();
+      refreshTokensList();
+      alert('Selected token activated! MCP client configs updated.');
+    }
+
+    async function revokeToken(tokenId) {
+      if (!confirm('Are you sure you want to revoke this token? This will deactivate it for all clients.')) {
+        return;
+      }
+
+      try {
+        await fetch(`/api/tokens/${tokenId}`, { method: 'DELETE' });
+      } catch {
+        // Fallback
+      }
+
+      try {
+        const list = JSON.parse(localStorage.getItem('ace_tokens_history') || '[]');
+        const updated = list.map(t => t.id === tokenId ? { ...t, isActive: 0 } : t);
+        localStorage.setItem('ace_tokens_history', JSON.stringify(updated));
+      } catch {}
+
+      refreshTokensList();
+      updateActiveTokenDisplay();
+      populateSnippets();
+    }
+
+    function copyGeneratedToken() {
+      const display = document.getElementById('new-token-display');
+      if (display && display.textContent) {
+        navigator.clipboard.writeText(display.textContent);
+        const btn = document.getElementById('btn-copy-token');
+        if (btn) {
+          const original = btn.innerHTML;
+          btn.innerHTML = '<i class="fa-solid fa-check text-emerald-400"></i> Copied';
+          setTimeout(() => btn.innerHTML = original, 2000);
+        }
+      }
+    }
+
+    function copyActiveToken() {
+      const active = localStorage.getItem('ace_api_token');
+      if (!active) {
+        alert('No active token. Generate one first!');
+        return;
+      }
+      navigator.clipboard.writeText(active);
+      const btn = document.getElementById('btn-copy-active-token');
+      if (btn) {
+        const original = btn.innerHTML;
+        btn.innerHTML = '<i class="fa-solid fa-check text-emerald-400"></i> Copied!';
+        setTimeout(() => btn.innerHTML = original, 2000);
+      }
+    }
+
+    function clearActiveToken() {
+      if (confirm('Clear the active token from this dashboard?')) {
+        localStorage.removeItem('ace_api_token');
+        updateActiveTokenDisplay();
+        populateSnippets();
+        refreshTokensList();
+      }
+    }
+
     // Init
     checkHealth();
+    updateActiveTokenDisplay();
     populateSnippets();
+    refreshTokensList();
   </script>
 </body>
 </html>

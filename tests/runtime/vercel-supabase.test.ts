@@ -7,6 +7,7 @@ import test from 'node:test';
 import healthHandler from '../../api/health.js';
 import mcpHandler from '../../api/mcp.js';
 import searchHandler from '../../api/search.js';
+import tokensHandler from '../../api/tokens.js';
 import { SupabaseClient } from '../../src/cloud/supabase/supabaseClient.js';
 import { SupabaseVectorStore } from '../../src/cloud/supabase/SupabaseVectorStore.js';
 import { getSupabaseConfig, isSupabaseMode } from '../../src/config.js';
@@ -193,6 +194,52 @@ test('Vercel API: /api/search 参数校验与 405/400 保护', async () => {
   const { req: postReq, res: postRes } = createMockReqRes({ method: 'POST', body: {} });
   await searchHandler(postReq, postRes);
   assert.equal(postRes.statusCode, 400);
+});
+
+test('Vercel API: /api/tokens 支持 OPTIONS, POST 创建, GET 列表与 DELETE 吊销', async () => {
+  // 1. OPTIONS CORS
+  const { req: optReq, res: optRes } = createMockReqRes({ method: 'OPTIONS' });
+  await tokensHandler(optReq, optRes);
+  assert.equal(optRes.statusCode, 204);
+  assert.equal(optRes.getHeader('access-control-allow-origin'), '*');
+
+  // 2. POST create token
+  const { req: createReq, res: createRes } = createMockReqRes({
+    method: 'POST',
+    url: '/api/tokens',
+    body: {
+      userId: 'vercel-dev',
+      description: 'Vercel Deployment Key',
+      expiresInDays: 90,
+    },
+  });
+  await tokensHandler(createReq, createRes);
+  assert.equal(createRes.statusCode, 201);
+  assert.equal(createRes.json.success, true);
+  assert.ok(createRes.json.token.startsWith('ace_'));
+  assert.ok(createRes.json.tokenId);
+  assert.equal(createRes.json.userId, 'vercel-dev');
+
+  const createdId = createRes.json.tokenId;
+
+  // 3. GET list tokens
+  const { req: listReq, res: listRes } = createMockReqRes({
+    method: 'GET',
+    url: '/api/tokens?userId=vercel-dev',
+  });
+  await tokensHandler(listReq, listRes);
+  assert.equal(listRes.statusCode, 200);
+  assert.equal(listRes.json.success, true);
+  assert.ok(Array.isArray(listRes.json.tokens));
+
+  // 4. DELETE revoke token
+  const { req: delReq, res: delRes } = createMockReqRes({
+    method: 'DELETE',
+    url: `/api/tokens?id=${createdId}`,
+  });
+  await tokensHandler(delReq, delRes);
+  assert.equal(delRes.statusCode, 200);
+  assert.equal(delRes.json.success, true);
 });
 
 // ===========================================
