@@ -29,6 +29,26 @@
       "dest": "/api/health.ts"
     },
     {
+      "src": "/agents/codebase-retrieval(/.*)?",
+      "dest": "/api/search.ts"
+    },
+    {
+      "src": "/context-canvas/list(/.*)?",
+      "dest": "/api/health.ts"
+    },
+    {
+      "src": "/search-external-sources(/.*)?",
+      "dest": "/api/health.ts"
+    },
+    {
+      "src": "/augment/get-models(/.*)?",
+      "dest": "/api/health.ts"
+    },
+    {
+      "src": "/get-implicit-external-sources(/.*)?",
+      "dest": "/api/health.ts"
+    },
+    {
       "handle": "filesystem"
     },
     {

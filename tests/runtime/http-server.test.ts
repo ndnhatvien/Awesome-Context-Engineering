@@ -149,31 +149,87 @@ describe('HTTP Server Tests', { concurrency: 1 }, () => {
       // Đợi port được giải phóng
       await new Promise((resolve) => setTimeout(resolve, 200));
     }
-  });  test('MCP endpoint chấp nhận GET requests cho SSE', async () => {
+  });
+
+  test('context-canvas/list endpoint returns status ok for GET and POST', async () => {
     const app = createHttpServerApp(TEST_HOST);
     const server = app.listen(TEST_PORT, TEST_HOST);
+    await new Promise((resolve) => setTimeout(resolve, 200));
 
     try {
-      const req = http.request({
+      const getRes = await httpRequest({
         hostname: TEST_HOST,
         port: TEST_PORT,
-        path: '/mcp',
+        path: '/context-canvas/list',
         method: 'GET',
       });
-      req.on('error', () => {}); // Tránh ngoại lệ chưa được bắt (uncaught exception) khi đóng socket
-      req.end();
+      assert.equal(getRes.statusCode, 200);
+      assert.equal(JSON.parse(getRes.body).status, 'ok');
 
-      // Đợi 300ms để server nhận request và khởi tạo session, sau đó chủ động đóng socket để tránh bị treo
-      await new Promise((resolve) => setTimeout(resolve, 300));
-      req.destroy();
-    } finally {
-      if (server.closeAllConnections) {
-        server.closeAllConnections();
-      }
-      await new Promise<void>((resolve) => {
-        server.close(() => resolve());
+      const postRes = await httpRequest({
+        hostname: TEST_HOST,
+        port: TEST_PORT,
+        path: '/context-canvas/list/',
+        method: 'POST',
       });
-      // Đợi port được giải phóng
+      assert.equal(postRes.statusCode, 200);
+      assert.equal(JSON.parse(postRes.body).status, 'ok');
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+  });
+
+  test('search-external-sources endpoint returns status ok for GET and POST with trailing slash', async () => {
+    const app = createHttpServerApp(TEST_HOST);
+    const server = app.listen(TEST_PORT, TEST_HOST);
+    await new Promise((resolve) => setTimeout(resolve, 200));
+
+    try {
+      const getRes = await httpRequest({
+        hostname: TEST_HOST,
+        port: TEST_PORT,
+        path: '/search-external-sources/',
+        method: 'GET',
+      });
+      assert.equal(getRes.statusCode, 200);
+      assert.equal(JSON.parse(getRes.body).status, 'ok');
+
+      const postRes = await httpRequest({
+        hostname: TEST_HOST,
+        port: TEST_PORT,
+        path: '/search-external-sources',
+        method: 'POST',
+      });
+      assert.equal(postRes.statusCode, 200);
+      assert.equal(JSON.parse(postRes.body).status, 'ok');
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+  });
+
+  test('agents/codebase-retrieval endpoint validates parameters and rejects missing query', async () => {
+    const app = createHttpServerApp(TEST_HOST);
+    const server = app.listen(TEST_PORT, TEST_HOST);
+    await new Promise((resolve) => setTimeout(resolve, 200));
+
+    try {
+      const res = await httpRequest(
+        {
+          hostname: TEST_HOST,
+          port: TEST_PORT,
+          path: '/agents/codebase-retrieval',
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        },
+        JSON.stringify({ repo_path: process.cwd() }),
+      );
+      assert.equal(res.statusCode, 400);
+      const data = JSON.parse(res.body);
+      assert.ok(data.message.includes('information_request'));
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
       await new Promise((resolve) => setTimeout(resolve, 200));
     }
   });

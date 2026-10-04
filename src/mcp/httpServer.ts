@@ -2309,29 +2309,86 @@ export function createHttpServerApp(_host = '127.0.0.1'): Express {
     res.json({ status: 'ok', service: 'ace-mcp-http', version: '1.0.0' });
   });
 
-  app.get('/context-canvas/list', (_req: Request, res: Response) => {
+  app.all(['/context-canvas/list', '/context-canvas/list/'], (_req: Request, res: Response) => {
     res.json({ status: 'ok', service: 'ace-mcp-http', version: '1.0.0' });
   });
 
-  app.post('/context-canvas/list', (_req: Request, res: Response) => {
-    res.json({ status: 'ok', service: 'ace-mcp-http', version: '1.0.0' });
-  });
+  app.all(
+    ['/get-implicit-external-sources', '/get-implicit-external-sources/'],
+    (_req: Request, res: Response) => {
+      res.json({ status: 'ok', service: 'ace-mcp-http', version: '1.0.0' });
+    },
+  );
 
-  app.get('/get-implicit-external-sources', (_req: Request, res: Response) => {
-    res.json({ status: 'ok', service: 'ace-mcp-http', version: '1.0.0' });
-  });
+  app.all(
+    ['/search-external-sources', '/search-external-sources/'],
+    (_req: Request, res: Response) => {
+      res.json({ status: 'ok', service: 'ace-mcp-http', version: '1.0.0' });
+    },
+  );
 
-  app.post('/get-implicit-external-sources', (_req: Request, res: Response) => {
-    res.json({ status: 'ok', service: 'ace-mcp-http', version: '1.0.0' });
-  });
+  // Direct Agent Codebase Retrieval endpoint for Augment Code and Agent Clients
+  app.all(
+    ['/agents/codebase-retrieval', '/agents/codebase-retrieval/'],
+    async (req: Request, res: Response) => {
+      const payload = (req.method === 'GET' ? req.query : req.body) || {};
 
-  app.get('/search-external-sources', (_req: Request, res: Response) => {
-    res.json({ status: 'ok', service: 'ace-mcp-http', version: '1.0.0' });
-  });
+      const query =
+        (payload.information_request as string) ||
+        (payload.query as string) ||
+        (payload.q as string) ||
+        (typeof payload.message === 'string' ? payload.message : '');
 
-  app.post('/search-external-sources', (_req: Request, res: Response) => {
-    res.json({ status: 'ok', service: 'ace-mcp-http', version: '1.0.0' });
-  });
+      if (!query) {
+        return res.status(400).json({
+          error: 'Bad Request',
+          message: 'Missing required field: information_request or query',
+        });
+      }
+
+      const repoPath =
+        (payload.repo_path as string) ||
+        (payload.project_id as string) ||
+        (payload.workspace_root as string) ||
+        (payload.workspacePath as string) ||
+        process.cwd();
+
+      try {
+        const technicalTerms = Array.isArray(payload.technical_terms)
+          ? (payload.technical_terms as string[])
+          : undefined;
+
+        const result = await handleCodebaseRetrieval({
+          repo_path: repoPath,
+          information_request: query,
+          technical_terms: technicalTerms,
+          cost_aware_ranking: Boolean(payload.cost_aware_ranking ?? true),
+          response_mode:
+            (payload.response_mode as 'overview' | 'raw' | 'skeleton' | undefined) || 'overview',
+          raw_top_n: payload.raw_top_n ? Number(payload.raw_top_n) : undefined,
+          include_globs: Array.isArray(payload.include_globs) ? payload.include_globs : undefined,
+          exclude_globs: Array.isArray(payload.exclude_globs) ? payload.exclude_globs : undefined,
+        });
+
+        const text = result.content?.[0]?.text || '';
+        return res.status(result.isError ? 500 : 200).json({
+          status: result.isError ? 'error' : 'ok',
+          formatted_retrieval: text,
+          formattedRetrieval: text,
+          result: text,
+          content: result.content,
+          isError: result.isError,
+        });
+      } catch (err) {
+        const error = err as { message?: string };
+        logger.error({ error: error.message }, 'Agent codebase-retrieval failed');
+        return res.status(500).json({
+          status: 'error',
+          error: error.message,
+        });
+      }
+    },
+  );
 
   // Folder browser API
   app.get('/admin/browse', (req: Request, res: Response) => {

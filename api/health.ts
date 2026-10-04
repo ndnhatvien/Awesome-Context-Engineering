@@ -21,6 +21,27 @@ function getDashboardHtml(): string | null {
 
 export default async function handler(req: IncomingMessage, res: ServerResponse): Promise<void> {
   res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', '*');
+
+  if (req.method === 'OPTIONS') {
+    res.statusCode = 204;
+    res.end();
+    return;
+  }
+
+  const url = (req.url || '').split('?')[0];
+  if (
+    url.includes('/context-canvas/list') ||
+    url.includes('/search-external-sources') ||
+    url.includes('/augment/get-models') ||
+    url.includes('/get-implicit-external-sources')
+  ) {
+    res.setHeader('Content-Type', 'application/json');
+    res.statusCode = 200;
+    res.end(JSON.stringify({ status: 'ok', service: 'ace-mcp-http', version: '1.0.0' }));
+    return;
+  }
 
   // If requested by a web browser, serve the interactive Web Dashboard
   const accept = req.headers?.accept || '';

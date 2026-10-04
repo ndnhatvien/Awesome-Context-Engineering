@@ -43,18 +43,55 @@ export function extractBearerToken(req: Request): string | null {
 }
 
 /**
+ * Verify token and return user auth info if valid
+ */
+export function verifyRequestAuth(req: Request): { userId: string; tokenId: string } | null {
+  const token = extractBearerToken(req);
+  if (!token) return null;
+
+  // First, check if the token is a user API token from Google OAuth
+  try {
+    const db = initUsersDb();
+    const user = getUserByToken(db, token);
+    db.close();
+    if (user) {
+      return {
+        userId: user.id,
+        tokenId: token,
+      };
+    }
+  } catch (err) {
+    logger.error({ error: (err as Error).message }, 'Error checking user token in database');
+  }
+
+  // Fallback to legacy token manager for generated service tokens
+  const verification = verifyToken(token);
+  if (verification.valid && verification.userId && verification.tokenId) {
+    return {
+      userId: verification.userId,
+      tokenId: verification.tokenId,
+    };
+  }
+
+  return null;
+}
+
+/**
  * Middleware to authenticate MCP requests
  */
 export function authenticateMCP(req: Request, res: Response, next: NextFunction): void {
-  // Skip auth for routes that are not under /mcp
+  const auth = verifyRequestAuth(req);
+  if (auth) {
+    (req as AuthenticatedRequest).auth = auth;
+  }
+
+  // Skip auth requirement for routes that are not under /mcp
   if (!req.path.startsWith('/mcp')) {
     next();
     return;
   }
 
-  const token = extractBearerToken(req);
-
-  if (!token) {
+  if (!auth) {
     res.status(401).json({
       error: 'Unauthorized',
       message:
@@ -63,48 +100,6 @@ export function authenticateMCP(req: Request, res: Response, next: NextFunction)
     return;
   }
 
-  // First, check if the token is a user API token from Google OAuth
-  let isValidUserToken = false;
-  let userIdFromDb: string | undefined;
-
-  try {
-    const db = initUsersDb();
-    const user = getUserByToken(db, token);
-    if (user) {
-      isValidUserToken = true;
-      userIdFromDb = user.id;
-    }
-    db.close();
-  } catch (err) {
-    logger.error({ error: (err as Error).message }, 'Error checking user token in database');
-  }
-
-  if (isValidUserToken && userIdFromDb) {
-    (req as AuthenticatedRequest).auth = {
-      userId: userIdFromDb,
-      tokenId: token,
-    };
-    next();
-    return;
-  }
-
-  // Fallback to legacy token manager for generated service tokens
-  const verification = verifyToken(token);
-
-  if (!verification.valid || !verification.userId || !verification.tokenId) {
-    res.status(401).json({
-      error: 'Unauthorized',
-      message: 'Invalid or expired token',
-    });
-    return;
-  }
-
-  // Attach user info to request
-  (req as AuthenticatedRequest).auth = {
-    userId: verification.userId,
-    tokenId: verification.tokenId,
-  };
-
   next();
 }
 
@@ -112,7 +107,13 @@ export function authenticateMCP(req: Request, res: Response, next: NextFunction)
  * Middleware to require authentication (throws if not authenticated)
  */
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
-  const auth = (req as AuthenticatedRequest).auth;
+  let auth = (req as AuthenticatedRequest).auth;
+  if (!auth) {
+    auth = verifyRequestAuth(req) ?? undefined;
+    if (auth) {
+      (req as AuthenticatedRequest).auth = auth;
+    }
+  }
 
   if (!auth || !auth.userId) {
     logger.warn({ path: req.path }, 'Unauthenticated request to protected endpoint');

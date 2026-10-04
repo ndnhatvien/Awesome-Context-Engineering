@@ -36,16 +36,21 @@ export default async function handler(
     return;
   }
 
-  if (req.method !== 'POST') {
+  if (req.method !== 'POST' && req.method !== 'GET') {
     res.statusCode = 405;
     res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify({ error: 'Method Not Allowed, use POST' }));
+    res.end(JSON.stringify({ error: 'Method Not Allowed, use GET or POST' }));
     return;
   }
 
   try {
-    let payload: Record<string, unknown>;
-    if (req.body && typeof req.body === 'object') {
+    let payload: Record<string, unknown> = {};
+    if (req.method === 'GET') {
+      const url = new URL(req.url || '', 'http://localhost');
+      for (const [key, value] of url.searchParams.entries()) {
+        payload[key] = value;
+      }
+    } else if (req.body && typeof req.body === 'object') {
       payload = req.body as Record<string, unknown>;
     } else {
       const raw = await readBody(req);
@@ -55,7 +60,10 @@ export default async function handler(
     applyRequestOverrides(req.headers, payload);
 
     const query =
-      (payload.information_request as string) || (payload.query as string) || (payload.q as string);
+      (payload.information_request as string) ||
+      (payload.query as string) ||
+      (payload.q as string) ||
+      (typeof payload.message === 'string' ? payload.message : '');
 
     if (!query) {
       res.statusCode = 400;
@@ -65,7 +73,11 @@ export default async function handler(
     }
 
     const repoPath =
-      (payload.repo_path as string) || (payload.project_id as string) || process.cwd();
+      (payload.repo_path as string) ||
+      (payload.project_id as string) ||
+      (payload.workspace_root as string) ||
+      (payload.workspacePath as string) ||
+      process.cwd();
     const technicalTerms = Array.isArray(payload.technical_terms)
       ? (payload.technical_terms as string[])
       : undefined;
@@ -79,9 +91,18 @@ export default async function handler(
         (payload.response_mode as 'overview' | 'raw' | 'skeleton' | undefined) || 'overview',
     });
 
+    const text = result.content?.[0]?.text || '';
     res.statusCode = result.isError ? 500 : 200;
     res.setHeader('Content-Type', 'application/json');
-    res.end(JSON.stringify(result));
+    res.end(
+      JSON.stringify({
+        ...result,
+        status: result.isError ? 'error' : 'ok',
+        formatted_retrieval: text,
+        formattedRetrieval: text,
+        result: text,
+      }),
+    );
   } catch (err) {
     const error = err as Error;
     logger.error({ error: error.message }, 'API Search Error');

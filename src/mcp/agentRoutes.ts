@@ -242,6 +242,91 @@ export function createAgentRoutes(): Router {
   const router = Router();
 
   // -------------------------------------------
+  // POST & GET /codebase-retrieval (Agent Codebase Retrieval)
+  // -------------------------------------------
+  const handleCodebaseRetrievalEndpoint = async (req: Request, res: Response) => {
+    const payload = (req.method === 'GET' ? req.query : req.body) || {};
+    const sessionId = getSessionId(req);
+
+    if (isToolRevoked(sessionId, 'codebase-retrieval')) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'Tool "codebase-retrieval" access has been revoked for this session',
+      });
+    }
+
+    const query =
+      (payload.information_request as string) ||
+      (payload.query as string) ||
+      (payload.q as string) ||
+      (typeof payload.message === 'string' ? payload.message : '');
+
+    if (!query) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'Missing required field: information_request or query',
+      });
+    }
+
+    const repoPath =
+      (payload.repo_path as string) ||
+      (payload.project_id as string) ||
+      (payload.workspace_root as string) ||
+      (payload.workspacePath as string) ||
+      process.cwd();
+
+    const safetyCheck = checkToolSafety('codebase-retrieval', {
+      repo_path: repoPath,
+      information_request: query,
+    });
+    if (safetyCheck.risk_level === 'denied') {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: safetyCheck.reason,
+      });
+    }
+
+    try {
+      const { handleCodebaseRetrieval } = await import('./tools/codebaseRetrieval.js');
+      const technicalTerms = Array.isArray(payload.technical_terms)
+        ? (payload.technical_terms as string[])
+        : undefined;
+
+      const result = await handleCodebaseRetrieval({
+        repo_path: repoPath,
+        information_request: query,
+        technical_terms: technicalTerms,
+        cost_aware_ranking: Boolean(payload.cost_aware_ranking ?? true),
+        response_mode:
+          (payload.response_mode as 'overview' | 'raw' | 'skeleton' | undefined) || 'overview',
+        raw_top_n: payload.raw_top_n ? Number(payload.raw_top_n) : undefined,
+        include_globs: Array.isArray(payload.include_globs) ? payload.include_globs : undefined,
+        exclude_globs: Array.isArray(payload.exclude_globs) ? payload.exclude_globs : undefined,
+      });
+
+      const text = result.content?.[0]?.text || '';
+      return res.status(result.isError ? 500 : 200).json({
+        status: result.isError ? 'error' : 'ok',
+        formatted_retrieval: text,
+        formattedRetrieval: text,
+        result: text,
+        content: result.content,
+        isError: result.isError,
+      });
+    } catch (err) {
+      const error = err as { message?: string };
+      logger.error({ error: error.message }, 'Agent codebase-retrieval failed');
+      return res.status(500).json({
+        status: 'error',
+        error: error.message,
+      });
+    }
+  };
+
+  router.post('/codebase-retrieval', handleCodebaseRetrievalEndpoint);
+  router.get('/codebase-retrieval', handleCodebaseRetrievalEndpoint);
+
+  // -------------------------------------------
   // POST /check-tool-safety
   // -------------------------------------------
   router.post('/check-tool-safety', (req: Request, res: Response) => {
