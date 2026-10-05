@@ -77,13 +77,18 @@ export default async function handler(
       ? (payload.technical_terms as string[])
       : undefined;
 
+    const url = (req.url || '').split('?')[0];
+    const isRawMode = url.includes('/codebase-retrieval-raw') || payload.response_mode === 'raw';
+    const responseMode = isRawMode
+      ? 'raw'
+      : (payload.response_mode as 'overview' | 'raw' | 'skeleton' | undefined) || 'overview';
+
     const result = await handleCodebaseRetrieval({
       repo_path: repoPath,
       information_request: query,
       technical_terms: technicalTerms,
       cost_aware_ranking: Boolean(payload.cost_aware_ranking ?? true),
-      response_mode:
-        (payload.response_mode as 'overview' | 'raw' | 'skeleton' | undefined) || 'overview',
+      response_mode: responseMode,
     });
 
     const text = result.content?.[0]?.text || '';

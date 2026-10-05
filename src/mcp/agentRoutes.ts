@@ -230,13 +230,161 @@ function checkToolSafety(
   };
 }
 
-// ===========================================
-// 路由工厂
-// ===========================================
+/** 可用的 Remote Tools 清单 */
+export const AVAILABLE_AGENT_TOOLS = [
+  {
+    name: 'codebase-retrieval',
+    description:
+      'PRIMARY semantic code retrieval engine using hybrid vector + lexical recall, smart cutoff, and context packing.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        repo_path: {
+          type: 'string',
+          description: 'Absolute path or project identifier for repository.',
+        },
+        information_request: {
+          type: 'string',
+          description: 'Semantic intent or description of desired code logic.',
+        },
+        technical_terms: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'Exact identifiers or symbols to hard-filter.',
+        },
+        cost_aware_ranking: {
+          type: 'boolean',
+          description: 'Enable Value-per-Token density ranking.',
+        },
+      },
+      required: ['repo_path', 'information_request'],
+    },
+  },
+  {
+    name: 'codebase-retrieval-raw',
+    description:
+      'Semantic code retrieval returning raw uncompressed chunks without context packing or AST folding.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        repo_path: {
+          type: 'string',
+          description: 'Absolute path or project identifier for repository.',
+        },
+        information_request: {
+          type: 'string',
+          description: 'Semantic intent or description of desired code logic.',
+        },
+      },
+      required: ['repo_path', 'information_request'],
+    },
+  },
+  {
+    name: 'list-remote-tools',
+    description: 'List all available remote tools and their capabilities.',
+    inputSchema: { type: 'object' },
+  },
+  {
+    name: 'run-remote-tool',
+    description: 'Execute a remote or self-dispatched tool through agent proxy.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        tool_name: { type: 'string', description: 'Name of the tool to execute' },
+        arguments: { type: 'object', description: 'Arguments passed to the tool' },
+        target_url: { type: 'string', description: 'Optional remote MCP endpoint URL' },
+        target_token: { type: 'string', description: 'Optional remote Bearer token' },
+      },
+      required: ['tool_name'],
+    },
+  },
+  {
+    name: 'edit-file',
+    description:
+      'Create, modify, or delete a workspace file with safety checks and diff generation.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        repo_path: { type: 'string', description: 'Repository root path' },
+        file_path: { type: 'string', description: 'Target file relative path' },
+        action: {
+          type: 'string',
+          enum: ['create', 'overwrite', 'patch'],
+          description: 'Edit action',
+        },
+        content: { type: 'string', description: 'Content for create or overwrite' },
+        dry_run: { type: 'boolean', description: 'Preview diff without applying changes' },
+      },
+      required: ['repo_path', 'file_path', 'action'],
+    },
+  },
+  {
+    name: 'check-tool-safety',
+    description:
+      'Check tool safety before execution against sensitive files and dangerous commands.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        tool_name: { type: 'string', description: 'Tool to inspect' },
+        arguments: { type: 'object', description: 'Arguments to inspect' },
+        repo_path: { type: 'string', description: 'Repository root' },
+      },
+      required: ['tool_name'],
+    },
+  },
+  {
+    name: 'revoke-tool-access',
+    description: 'Revoke tool access for a specific session or globally.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        tool_name: { type: 'string', description: 'Tool name to revoke, or * for all' },
+        session_id: { type: 'string', description: 'Target session ID' },
+      },
+      required: ['tool_name'],
+    },
+  },
+  {
+    name: 'agent-memory',
+    description: 'Autonomous four-layer memory and context management for AI agents.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        repo_path: { type: 'string', description: 'Repository root' },
+        action: {
+          type: 'string',
+          enum: [
+            'record_failure',
+            'record_strategy',
+            'record_constraint',
+            'record_decision',
+            'query',
+            'compile_context',
+            'setup_hooks',
+          ],
+        },
+      },
+      required: ['repo_path', 'action'],
+    },
+  },
+  {
+    name: 'expand-chunk',
+    description: 'Fetch complete uncompressed code block for a specific line span.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        file_path: { type: 'string' },
+        start_line: { type: 'number' },
+        end_line: { type: 'number' },
+      },
+      required: ['file_path', 'start_line', 'end_line'],
+    },
+  },
+];
 
 /**
  * 创建 Agent 编排路由
- * 所有路由需要外层 requireAuth 中间件保护
+ * 所有路由支持 authenticateMCP 中间件
  */
 export function createAgentRoutes(): Router {
   const router = Router();
@@ -327,6 +475,99 @@ export function createAgentRoutes(): Router {
   router.get('/codebase-retrieval', handleCodebaseRetrievalEndpoint);
 
   // -------------------------------------------
+  // POST & GET /codebase-retrieval-raw (Raw Chunks Retrieval)
+  // -------------------------------------------
+  const handleCodebaseRetrievalRawEndpoint = async (req: Request, res: Response) => {
+    const payload = (req.method === 'GET' ? req.query : req.body) || {};
+    const sessionId = getSessionId(req);
+
+    if (
+      isToolRevoked(sessionId, 'codebase-retrieval') ||
+      isToolRevoked(sessionId, 'codebase-retrieval-raw')
+    ) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'Tool "codebase-retrieval-raw" access has been revoked for this session',
+      });
+    }
+
+    const query =
+      (payload.information_request as string) ||
+      (payload.query as string) ||
+      (payload.q as string) ||
+      (typeof payload.message === 'string' ? payload.message : '');
+
+    if (!query) {
+      return res.status(400).json({
+        error: 'Bad Request',
+        message: 'Missing required field: information_request or query',
+      });
+    }
+
+    const repoPath =
+      (payload.repo_path as string) ||
+      (payload.project_id as string) ||
+      (payload.workspace_root as string) ||
+      (payload.workspacePath as string) ||
+      process.cwd();
+
+    try {
+      const { handleCodebaseRetrieval } = await import('./tools/codebaseRetrieval.js');
+      const technicalTerms = Array.isArray(payload.technical_terms)
+        ? (payload.technical_terms as string[])
+        : undefined;
+
+      const result = await handleCodebaseRetrieval({
+        repo_path: repoPath,
+        information_request: query,
+        technical_terms: technicalTerms,
+        cost_aware_ranking: Boolean(payload.cost_aware_ranking ?? true),
+        response_mode: 'raw',
+        raw_top_n: payload.raw_top_n ? Number(payload.raw_top_n) : undefined,
+        include_globs: Array.isArray(payload.include_globs) ? payload.include_globs : undefined,
+        exclude_globs: Array.isArray(payload.exclude_globs) ? payload.exclude_globs : undefined,
+      });
+
+      const text = result.content?.[0]?.text || '';
+      return res.status(result.isError ? 500 : 200).json({
+        status: result.isError ? 'error' : 'ok',
+        response_mode: 'raw',
+        formatted_retrieval: text,
+        formattedRetrieval: text,
+        result: text,
+        content: result.content,
+        isError: result.isError,
+      });
+    } catch (err) {
+      const error = err as { message?: string };
+      logger.error({ error: error.message }, 'Agent codebase-retrieval-raw failed');
+      return res.status(500).json({
+        status: 'error',
+        error: error.message,
+      });
+    }
+  };
+
+  router.post('/codebase-retrieval-raw', handleCodebaseRetrievalRawEndpoint);
+  router.get('/codebase-retrieval-raw', handleCodebaseRetrievalRawEndpoint);
+
+  // -------------------------------------------
+  // GET & POST /list-remote-tools
+  // -------------------------------------------
+  const handleListRemoteTools = (_req: Request, res: Response) => {
+    return res.json({
+      status: 'ok',
+      service: 'ace-mcp-http',
+      version: '1.0.0',
+      tools: AVAILABLE_AGENT_TOOLS,
+      total: AVAILABLE_AGENT_TOOLS.length,
+    });
+  };
+
+  router.get('/list-remote-tools', handleListRemoteTools);
+  router.post('/list-remote-tools', handleListRemoteTools);
+
+  // -------------------------------------------
   // POST /check-tool-safety
   // -------------------------------------------
   router.post('/check-tool-safety', (req: Request, res: Response) => {
@@ -377,6 +618,7 @@ export function createAgentRoutes(): Router {
     );
 
     return res.json({
+      status: 'ok',
       revoked: true,
       session_id: targetSessionId,
       tools_revoked: toolsRevoked,

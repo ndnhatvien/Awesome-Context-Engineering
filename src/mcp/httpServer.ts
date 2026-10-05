@@ -21,7 +21,8 @@ import {
 } from '../auth/adminAuth.js';
 import { createUser, getUserByEmail, initUsersDb, regenerateUserToken } from '../db/users.js';
 import { logger } from '../utils/logger.js';
-import { createAgentRoutes } from './agentRoutes.js';
+import { AVAILABLE_AGENT_TOOLS, createAgentRoutes } from './agentRoutes.js';
+import { createContextSyncRoutes } from './contextSyncRoutes.js';
 import { executeWithProgressHeartbeat } from './progressHeartbeat.js';
 import { sessionManager } from './sessionManager.js';
 import { authenticateMCP, getAuthUser, requireAuth } from './sseAuth.js';
@@ -2479,23 +2480,8 @@ export function createHttpServerApp(_host = '127.0.0.1'): Express {
     res.json({ status: 'ok', service: 'ace-mcp-http', version: '1.0.0' });
   });
 
-  app.all(['/context-canvas/list', '/context-canvas/list/'], (_req: Request, res: Response) => {
-    res.json({ status: 'ok', service: 'ace-mcp-http', version: '1.0.0' });
-  });
-
-  app.all(
-    ['/get-implicit-external-sources', '/get-implicit-external-sources/'],
-    (_req: Request, res: Response) => {
-      res.json({ status: 'ok', service: 'ace-mcp-http', version: '1.0.0' });
-    },
-  );
-
-  app.all(
-    ['/search-external-sources', '/search-external-sources/'],
-    (_req: Request, res: Response) => {
-      res.json({ status: 'ok', service: 'ace-mcp-http', version: '1.0.0' });
-    },
-  );
+  // Mount Context, File & Blob Sync Routes (Group B endpoints)
+  app.use(createContextSyncRoutes());
 
   // Direct Agent Codebase Retrieval endpoint for Augment Code and Agent Clients
   app.all(
@@ -2557,6 +2543,83 @@ export function createHttpServerApp(_host = '127.0.0.1'): Express {
           error: error.message,
         });
       }
+    },
+  );
+
+  // Direct Raw Codebase Retrieval endpoint
+  app.all(
+    ['/agents/codebase-retrieval-raw', '/agents/codebase-retrieval-raw/'],
+    async (req: Request, res: Response) => {
+      const payload = (req.method === 'GET' ? req.query : req.body) || {};
+
+      const query =
+        (payload.information_request as string) ||
+        (payload.query as string) ||
+        (payload.q as string) ||
+        (typeof payload.message === 'string' ? payload.message : '');
+
+      if (!query) {
+        return res.status(400).json({
+          error: 'Bad Request',
+          message: 'Missing required field: information_request or query',
+        });
+      }
+
+      const repoPath =
+        (payload.repo_path as string) ||
+        (payload.project_id as string) ||
+        (payload.workspace_root as string) ||
+        (payload.workspacePath as string) ||
+        process.cwd();
+
+      try {
+        const technicalTerms = Array.isArray(payload.technical_terms)
+          ? (payload.technical_terms as string[])
+          : undefined;
+
+        const result = await handleCodebaseRetrieval({
+          repo_path: repoPath,
+          information_request: query,
+          technical_terms: technicalTerms,
+          cost_aware_ranking: Boolean(payload.cost_aware_ranking ?? true),
+          response_mode: 'raw',
+          raw_top_n: payload.raw_top_n ? Number(payload.raw_top_n) : undefined,
+          include_globs: Array.isArray(payload.include_globs) ? payload.include_globs : undefined,
+          exclude_globs: Array.isArray(payload.exclude_globs) ? payload.exclude_globs : undefined,
+        });
+
+        const text = result.content?.[0]?.text || '';
+        return res.status(result.isError ? 500 : 200).json({
+          status: result.isError ? 'error' : 'ok',
+          response_mode: 'raw',
+          formatted_retrieval: text,
+          formattedRetrieval: text,
+          result: text,
+          content: result.content,
+          isError: result.isError,
+        });
+      } catch (err) {
+        const error = err as { message?: string };
+        logger.error({ error: error.message }, 'Agent codebase-retrieval-raw failed');
+        return res.status(500).json({
+          status: 'error',
+          error: error.message,
+        });
+      }
+    },
+  );
+
+  // Direct List Remote Tools endpoint
+  app.all(
+    ['/agents/list-remote-tools', '/agents/list-remote-tools/'],
+    (_req: Request, res: Response) => {
+      res.json({
+        status: 'ok',
+        service: 'ace-mcp-http',
+        version: '1.0.0',
+        tools: AVAILABLE_AGENT_TOOLS,
+        total: AVAILABLE_AGENT_TOOLS.length,
+      });
     },
   );
 
@@ -3011,8 +3074,8 @@ export function createHttpServerApp(_host = '127.0.0.1'): Express {
   // Agent Orchestration Endpoints
   // ========================================
 
-  // Mount agent routes under /agents prefix (requires authentication)
-  app.use('/agents', requireAuth, createAgentRoutes());
+  // Mount agent routes under /agents prefix (supports authenticateMCP)
+  app.use('/agents', authenticateMCP, createAgentRoutes());
 
   // ========================================
   // MCP Session & SSE Endpoints

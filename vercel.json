@@ -41,11 +41,59 @@
       "dest": "/api/search.ts"
     },
     {
+      "src": "/agents/codebase-retrieval-raw(/.*)?",
+      "dest": "/api/search.ts"
+    },
+    {
+      "src": "/agents/list-remote-tools(/.*)?",
+      "dest": "/api/health.ts"
+    },
+    {
+      "src": "/agents/run-remote-tool(/.*)?",
+      "dest": "/api/health.ts"
+    },
+    {
+      "src": "/agents/edit-file(/.*)?",
+      "dest": "/api/health.ts"
+    },
+    {
+      "src": "/agents/check-tool-safety(/.*)?",
+      "dest": "/api/health.ts"
+    },
+    {
+      "src": "/agents/revoke-tool-access(/.*)?",
+      "dest": "/api/health.ts"
+    },
+    {
       "src": "/context-canvas/list(/.*)?",
       "dest": "/api/health.ts"
     },
     {
       "src": "/search-external-sources(/.*)?",
+      "dest": "/api/health.ts"
+    },
+    {
+      "src": "/batch-upload(/.*)?",
+      "dest": "/api/health.ts"
+    },
+    {
+      "src": "/checkpoint-blobs(/.*)?",
+      "dest": "/api/health.ts"
+    },
+    {
+      "src": "/find-missing(/.*)?",
+      "dest": "/api/health.ts"
+    },
+    {
+      "src": "/save-chat(/.*)?",
+      "dest": "/api/health.ts"
+    },
+    {
+      "src": "/indexed-commits(/.*)?",
+      "dest": "/api/health.ts"
+    },
+    {
+      "src": "/chat/exchanges(/.*)?",
       "dest": "/api/health.ts"
     },
     {

@@ -429,99 +429,323 @@
           <span id="test-summary-count" class="font-mono text-[11px] px-2 py-0.5 rounded bg-slate-900/60 font-semibold"></span>
         </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <!-- Card 1: /get-models -->
-          <div class="p-4 rounded-xl border border-slate-800 bg-slate-950 space-y-3">
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-2">
-                <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">GET</span>
-                <span class="font-mono text-xs font-semibold text-white">/get-models</span>
-              </div>
-              <span id="badge-get-models" class="text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">Untested</span>
-            </div>
-            <p class="text-xs text-slate-400">Model discovery & service capability probe for Augment Code / BYOK.</p>
-            <div class="flex items-center justify-between pt-1">
-              <div class="flex gap-2">
-                <button onclick="runEndpointTest('get-models', 'GET', '/get-models')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-xs transition font-medium flex items-center gap-1.5">
-                  <i class="fa-solid fa-play text-[10px]"></i> Test GET
-                </button>
-                <button onclick="runEndpointTest('get-models', 'POST', '/augment/get-models')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 rounded text-xs transition font-medium">
-                  Test /augment
-                </button>
-              </div>
-              <span id="latency-get-models" class="text-[11px] font-mono text-slate-500"></span>
-            </div>
-            <pre id="output-get-models" class="hidden p-2.5 bg-slate-900 border border-slate-800/80 rounded text-[11px] font-mono text-slate-300 overflow-x-auto max-h-36 leading-relaxed"></pre>
+        <!-- Section A: Augment Discovery & Compatibility -->
+        <div class="space-y-4 pt-2">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+            <h4 class="text-xs font-semibold uppercase text-emerald-400 tracking-wider flex items-center gap-2">
+              <i class="fa-solid fa-compass"></i>
+              <span>Group A: Discovery & Compatibility Probes</span>
+            </h4>
+            <span class="text-[11px] text-slate-500 font-mono">Augment Code Health & Model Discovery</span>
           </div>
 
-          <!-- Card 2: /context-canvas/list -->
-          <div class="p-4 rounded-xl border border-slate-800 bg-slate-950 space-y-3">
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-2">
-                <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">GET</span>
-                <span class="font-mono text-xs font-semibold text-white">/context-canvas/list</span>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- /get-models -->
+            <div class="p-4 rounded-xl border border-slate-800 bg-slate-950 space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">GET / POST</span>
+                <span id="badge-get-models" class="text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">Untested</span>
               </div>
-              <span id="badge-context-canvas" class="text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">Untested</span>
-            </div>
-            <p class="text-xs text-slate-400">Augment Code Context Canvas list probe (supports both GET & POST).</p>
-            <div class="flex items-center justify-between pt-1">
-              <div class="flex gap-2">
-                <button onclick="runEndpointTest('context-canvas', 'GET', '/context-canvas/list')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-xs transition font-medium flex items-center gap-1.5">
-                  <i class="fa-solid fa-play text-[10px]"></i> Test GET
-                </button>
-                <button onclick="runEndpointTest('context-canvas', 'POST', '/context-canvas/list/')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 rounded text-xs transition font-medium">
-                  Test POST /
-                </button>
+              <div class="font-mono text-xs font-semibold text-white">/get-models &amp; /augment/get-models</div>
+              <p class="text-xs text-slate-400">Health probe and model discovery compatibility endpoint for Augment Code extension.</p>
+              <div class="flex items-center justify-between pt-1">
+                <div class="flex items-center gap-2">
+                  <button onclick="runEndpointTest('get-models', 'GET', '/get-models')" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-xs transition font-medium">Test GET</button>
+                  <button onclick="runEndpointTest('get-models', 'POST', '/get-models')" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-xs transition font-medium">Test POST</button>
+                </div>
+                <span id="latency-get-models" class="text-[11px] font-mono text-slate-500"></span>
               </div>
-              <span id="latency-context-canvas" class="text-[11px] font-mono text-slate-500"></span>
+              <pre id="output-get-models" class="hidden p-2.5 bg-slate-900 border border-slate-800/80 rounded text-[11px] font-mono text-slate-300 overflow-x-auto max-h-28"></pre>
             </div>
-            <pre id="output-context-canvas" class="hidden p-2.5 bg-slate-900 border border-slate-800/80 rounded text-[11px] font-mono text-slate-300 overflow-x-auto max-h-36 leading-relaxed"></pre>
+          </div>
+        </div>
+
+        <!-- Section B: File / Blob / Context Sync (9 endpoints) -->
+        <div class="space-y-4 pt-2">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+            <h4 class="text-xs font-semibold uppercase text-indigo-400 tracking-wider flex items-center gap-2">
+              <i class="fa-solid fa-arrows-rotate"></i>
+              <span>Group B: File / Blob / Context Sync (9 Endpoints)</span>
+            </h4>
+            <span class="text-[11px] text-slate-500 font-mono">Augment Code Context Sync Protocol</span>
           </div>
 
-          <!-- Card 3: /search-external-sources/ -->
-          <div class="p-4 rounded-xl border border-slate-800 bg-slate-950 space-y-3">
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-2">
-                <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">GET</span>
-                <span class="font-mono text-xs font-semibold text-white">/search-external-sources/</span>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <!-- B1: /context-canvas/list -->
+            <div class="p-4 rounded-xl border border-slate-800 bg-slate-950 space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">GET / POST</span>
+                <span id="badge-context-canvas" class="text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">Untested</span>
               </div>
-              <span id="badge-search-external" class="text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">Untested</span>
-            </div>
-            <p class="text-xs text-slate-400">External sources retrieval probe (handles both with and without trailing slash).</p>
-            <div class="flex items-center justify-between pt-1">
-              <div class="flex gap-2">
-                <button onclick="runEndpointTest('search-external', 'GET', '/search-external-sources/')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-xs transition font-medium flex items-center gap-1.5">
-                  <i class="fa-solid fa-play text-[10px]"></i> Test with /
-                </button>
-                <button onclick="runEndpointTest('search-external', 'POST', '/search-external-sources')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 rounded text-xs transition font-medium">
-                  Test POST
-                </button>
+              <div class="font-mono text-xs font-semibold text-white">/context-canvas/list</div>
+              <p class="text-xs text-slate-400">Quản lý Context Canvas cho Augment Code.</p>
+              <div class="flex items-center justify-between pt-1">
+                <button onclick="runEndpointTest('context-canvas', 'GET', '/context-canvas/list')" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-xs transition font-medium">Test GET</button>
+                <button onclick="runEndpointTest('context-canvas', 'POST', '/context-canvas/list')" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-xs transition font-medium">Test POST</button>
+                <span id="latency-context-canvas" class="text-[11px] font-mono text-slate-500"></span>
               </div>
-              <span id="latency-search-external" class="text-[11px] font-mono text-slate-500"></span>
+              <pre id="output-context-canvas" class="hidden p-2.5 bg-slate-900 border border-slate-800/80 rounded text-[11px] font-mono text-slate-300 overflow-x-auto max-h-28"></pre>
             </div>
-            <pre id="output-search-external" class="hidden p-2.5 bg-slate-900 border border-slate-800/80 rounded text-[11px] font-mono text-slate-300 overflow-x-auto max-h-36 leading-relaxed"></pre>
-          </div>
 
-          <!-- Card 4: /agents/codebase-retrieval -->
-          <div class="p-4 rounded-xl border border-slate-800 bg-slate-950 space-y-3">
-            <div class="flex items-center justify-between">
-              <div class="flex items-center gap-2">
+            <!-- B2: /search-external-sources -->
+            <div class="p-4 rounded-xl border border-slate-800 bg-slate-950 space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">GET / POST</span>
+                <span id="badge-search-external" class="text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">Untested</span>
+              </div>
+              <div class="font-mono text-xs font-semibold text-white">/search-external-sources</div>
+              <p class="text-xs text-slate-400">Tìm kiếm nguồn tài nguyên ngoài / web search.</p>
+              <div class="flex items-center justify-between pt-1">
+                <button onclick="runEndpointTest('search-external', 'GET', '/search-external-sources')" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-xs transition font-medium">Test GET</button>
+                <button onclick="runEndpointTest('search-external', 'POST', '/search-external-sources')" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-xs transition font-medium">Test POST</button>
+                <span id="latency-search-external" class="text-[11px] font-mono text-slate-500"></span>
+              </div>
+              <pre id="output-search-external" class="hidden p-2.5 bg-slate-900 border border-slate-800/80 rounded text-[11px] font-mono text-slate-300 overflow-x-auto max-h-28"></pre>
+            </div>
+
+            <!-- B3: /batch-upload -->
+            <div class="p-4 rounded-xl border border-slate-800 bg-slate-950 space-y-3">
+              <div class="flex items-center justify-between">
                 <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400">POST</span>
-                <span class="font-mono text-xs font-semibold text-white">/agents/codebase-retrieval</span>
+                <span id="badge-batch-upload" class="text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">Untested</span>
               </div>
-              <span id="badge-codebase-retrieval" class="text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">Untested</span>
+              <div class="font-mono text-xs font-semibold text-white">/batch-upload</div>
+              <p class="text-xs text-slate-400">Upload các blob file / context codebase.</p>
+              <div class="flex items-center justify-between pt-1">
+                <button onclick="runEndpointTest('batch-upload', 'POST', '/batch-upload')" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-xs transition font-medium">Test Upload</button>
+                <span id="latency-batch-upload" class="text-[11px] font-mono text-slate-500"></span>
+              </div>
+              <pre id="output-batch-upload" class="hidden p-2.5 bg-slate-900 border border-slate-800/80 rounded text-[11px] font-mono text-slate-300 overflow-x-auto max-h-28"></pre>
             </div>
-            <p class="text-xs text-slate-400">Official Agent codebase retrieval endpoint used by Augment Code & Agent Tools.</p>
-            <div>
-              <input type="text" id="test-retrieval-query" value="Trace authentication flow" placeholder="Information request" class="w-full bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500">
+
+            <!-- B4: /checkpoint-blobs -->
+            <div class="p-4 rounded-xl border border-slate-800 bg-slate-950 space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">GET / POST</span>
+                <span id="badge-checkpoint-blobs" class="text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">Untested</span>
+              </div>
+              <div class="font-mono text-xs font-semibold text-white">/checkpoint-blobs</div>
+              <p class="text-xs text-slate-400">Tạo và quản lý checkpoint blobs.</p>
+              <div class="flex items-center justify-between pt-1">
+                <button onclick="runEndpointTest('checkpoint-blobs', 'POST', '/checkpoint-blobs')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-xs transition font-medium">Test Checkpoint</button>
+                <span id="latency-checkpoint-blobs" class="text-[11px] font-mono text-slate-500"></span>
+              </div>
+              <pre id="output-checkpoint-blobs" class="hidden p-2.5 bg-slate-900 border border-slate-800/80 rounded text-[11px] font-mono text-slate-300 overflow-x-auto max-h-28"></pre>
             </div>
-            <div class="flex items-center justify-between pt-1">
-              <button onclick="runEndpointTest('codebase-retrieval', 'POST', '/agents/codebase-retrieval')" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-xs transition font-medium flex items-center gap-1.5 shadow-md shadow-indigo-600/20">
-                <i class="fa-solid fa-play text-[10px]"></i> Test Retrieval
-              </button>
-              <span id="latency-codebase-retrieval" class="text-[11px] font-mono text-slate-500"></span>
+
+            <!-- B5: /find-missing -->
+            <div class="p-4 rounded-xl border border-slate-800 bg-slate-950 space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400">POST</span>
+                <span id="badge-find-missing" class="text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">Untested</span>
+              </div>
+              <div class="font-mono text-xs font-semibold text-white">/find-missing</div>
+              <p class="text-xs text-slate-400">Tìm kiếm và bù đắp các blob ngữ cảnh bị thiếu.</p>
+              <div class="flex items-center justify-between pt-1">
+                <button onclick="runEndpointTest('find-missing', 'POST', '/find-missing')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-xs transition font-medium">Test Probe</button>
+                <span id="latency-find-missing" class="text-[11px] font-mono text-slate-500"></span>
+              </div>
+              <pre id="output-find-missing" class="hidden p-2.5 bg-slate-900 border border-slate-800/80 rounded text-[11px] font-mono text-slate-300 overflow-x-auto max-h-28"></pre>
             </div>
-            <pre id="output-codebase-retrieval" class="hidden p-2.5 bg-slate-900 border border-slate-800/80 rounded text-[11px] font-mono text-slate-300 overflow-x-auto max-h-36 leading-relaxed"></pre>
+
+            <!-- B6: /save-chat -->
+            <div class="p-4 rounded-xl border border-slate-800 bg-slate-950 space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400">POST</span>
+                <span id="badge-save-chat" class="text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">Untested</span>
+              </div>
+              <div class="font-mono text-xs font-semibold text-white">/save-chat</div>
+              <p class="text-xs text-slate-400">Lưu phiên chat / ngữ cảnh hội thoại.</p>
+              <div class="flex items-center justify-between pt-1">
+                <button onclick="runEndpointTest('save-chat', 'POST', '/save-chat')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-xs transition font-medium">Test Save</button>
+                <span id="latency-save-chat" class="text-[11px] font-mono text-slate-500"></span>
+              </div>
+              <pre id="output-save-chat" class="hidden p-2.5 bg-slate-900 border border-slate-800/80 rounded text-[11px] font-mono text-slate-300 overflow-x-auto max-h-28"></pre>
+            </div>
+
+            <!-- B7: /indexed-commits/get-latest-blobset -->
+            <div class="p-4 rounded-xl border border-slate-800 bg-slate-950 space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">GET / POST</span>
+                <span id="badge-indexed-commits-get" class="text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">Untested</span>
+              </div>
+              <div class="font-mono text-xs font-semibold text-white">/indexed-commits/get-latest-blobset</div>
+              <p class="text-xs text-slate-400">Quản lý blobset commit đã index.</p>
+              <div class="flex items-center justify-between pt-1">
+                <button onclick="runEndpointTest('indexed-commits-get', 'GET', '/indexed-commits/get-latest-blobset')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-xs transition font-medium">Test GET</button>
+                <span id="latency-indexed-commits-get" class="text-[11px] font-mono text-slate-500"></span>
+              </div>
+              <pre id="output-indexed-commits-get" class="hidden p-2.5 bg-slate-900 border border-slate-800/80 rounded text-[11px] font-mono text-slate-300 overflow-x-auto max-h-28"></pre>
+            </div>
+
+            <!-- B8: /indexed-commits/register-blobset -->
+            <div class="p-4 rounded-xl border border-slate-800 bg-slate-950 space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400">POST</span>
+                <span id="badge-indexed-commits-register" class="text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">Untested</span>
+              </div>
+              <div class="font-mono text-xs font-semibold text-white">/indexed-commits/register-blobset</div>
+              <p class="text-xs text-slate-400">Đăng ký blobset commit mới.</p>
+              <div class="flex items-center justify-between pt-1">
+                <button onclick="runEndpointTest('indexed-commits-register', 'POST', '/indexed-commits/register-blobset')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-xs transition font-medium">Test Register</button>
+                <span id="latency-indexed-commits-register" class="text-[11px] font-mono text-slate-500"></span>
+              </div>
+              <pre id="output-indexed-commits-register" class="hidden p-2.5 bg-slate-900 border border-slate-800/80 rounded text-[11px] font-mono text-slate-300 overflow-x-auto max-h-28"></pre>
+            </div>
+
+            <!-- B9: /chat/exchanges/list -->
+            <div class="p-4 rounded-xl border border-slate-800 bg-slate-950 space-y-3">
+              <div class="flex items-center justify-between">
+                <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">GET / POST</span>
+                <span id="badge-chat-exchanges" class="text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">Untested</span>
+              </div>
+              <div class="font-mono text-xs font-semibold text-white">/chat/exchanges/list</div>
+              <p class="text-xs text-slate-400">Danh sách lịch sử trao đổi.</p>
+              <div class="flex items-center justify-between pt-1">
+                <button onclick="runEndpointTest('chat-exchanges', 'GET', '/chat/exchanges/list')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-xs transition font-medium">Test Exchanges</button>
+                <span id="latency-chat-exchanges" class="text-[11px] font-mono text-slate-500"></span>
+              </div>
+              <pre id="output-chat-exchanges" class="hidden p-2.5 bg-slate-900 border border-slate-800/80 rounded text-[11px] font-mono text-slate-300 overflow-x-auto max-h-28"></pre>
+            </div>
+          </div>
+        </div>
+
+        <!-- Section C: Agents / Tools (7 endpoints) -->
+        <div class="space-y-4 pt-4 border-t border-slate-800">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+            <h4 class="text-xs font-semibold uppercase text-purple-400 tracking-wider flex items-center gap-2">
+              <i class="fa-solid fa-robot"></i>
+              <span>Group C: Agents / Tools (7 Endpoints)</span>
+            </h4>
+            <span class="text-[11px] text-slate-500 font-mono">Agent Orchestration & Context Tools</span>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- C1: /agents/codebase-retrieval -->
+            <div class="p-4 rounded-xl border border-slate-800 bg-slate-950 space-y-3">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400">POST / GET</span>
+                  <span class="font-mono text-xs font-semibold text-white">/agents/codebase-retrieval</span>
+                </div>
+                <span id="badge-codebase-retrieval" class="text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">Untested</span>
+              </div>
+              <p class="text-xs text-slate-400">Truy xuất ngữ cảnh codebase (Packed Context / Overview mode).</p>
+              <div>
+                <input type="text" id="test-retrieval-query" value="Trace authentication flow" placeholder="Information request" class="w-full bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500">
+              </div>
+              <div class="flex items-center justify-between pt-1">
+                <button onclick="runEndpointTest('codebase-retrieval', 'POST', '/agents/codebase-retrieval')" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-xs transition font-medium flex items-center gap-1.5 shadow-md shadow-indigo-600/20">
+                  <i class="fa-solid fa-play text-[10px]"></i> Test Retrieval
+                </button>
+                <span id="latency-codebase-retrieval" class="text-[11px] font-mono text-slate-500"></span>
+              </div>
+              <pre id="output-codebase-retrieval" class="hidden p-2.5 bg-slate-900 border border-slate-800/80 rounded text-[11px] font-mono text-slate-300 overflow-x-auto max-h-36 leading-relaxed"></pre>
+            </div>
+
+            <!-- C2: /agents/codebase-retrieval-raw -->
+            <div class="p-4 rounded-xl border border-slate-800 bg-slate-950 space-y-3">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400">POST / GET</span>
+                  <span class="font-mono text-xs font-semibold text-white">/agents/codebase-retrieval-raw</span>
+                </div>
+                <span id="badge-codebase-retrieval-raw" class="text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">Untested</span>
+              </div>
+              <p class="text-xs text-slate-400">Truy xuất ngữ cảnh codebase thô (Raw chunks mà không qua context packing).</p>
+              <div class="flex items-center justify-between pt-1">
+                <button onclick="runEndpointTest('codebase-retrieval-raw', 'POST', '/agents/codebase-retrieval-raw')" class="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded text-xs transition font-medium flex items-center gap-1.5">
+                  <i class="fa-solid fa-play text-[10px]"></i> Test Raw
+                </button>
+                <span id="latency-codebase-retrieval-raw" class="text-[11px] font-mono text-slate-500"></span>
+              </div>
+              <pre id="output-codebase-retrieval-raw" class="hidden p-2.5 bg-slate-900 border border-slate-800/80 rounded text-[11px] font-mono text-slate-300 overflow-x-auto max-h-36 leading-relaxed"></pre>
+            </div>
+
+            <!-- C3: /agents/list-remote-tools -->
+            <div class="p-4 rounded-xl border border-slate-800 bg-slate-950 space-y-3">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">GET / POST</span>
+                  <span class="font-mono text-xs font-semibold text-white">/agents/list-remote-tools</span>
+                </div>
+                <span id="badge-list-remote-tools" class="text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">Untested</span>
+              </div>
+              <p class="text-xs text-slate-400">Liệt kê danh sách remote tools và schemas khả dụng.</p>
+              <div class="flex items-center justify-between pt-1">
+                <button onclick="runEndpointTest('list-remote-tools', 'GET', '/agents/list-remote-tools')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-xs transition font-medium">Test List Tools</button>
+                <span id="latency-list-remote-tools" class="text-[11px] font-mono text-slate-500"></span>
+              </div>
+              <pre id="output-list-remote-tools" class="hidden p-2.5 bg-slate-900 border border-slate-800/80 rounded text-[11px] font-mono text-slate-300 overflow-x-auto max-h-36 leading-relaxed"></pre>
+            </div>
+
+            <!-- C4: /agents/run-remote-tool -->
+            <div class="p-4 rounded-xl border border-slate-800 bg-slate-950 space-y-3">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400">POST</span>
+                  <span class="font-mono text-xs font-semibold text-white">/agents/run-remote-tool</span>
+                </div>
+                <span id="badge-run-remote-tool" class="text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">Untested</span>
+              </div>
+              <p class="text-xs text-slate-400">Thực thi remote tool qua agent proxy (hoặc self-dispatch).</p>
+              <div class="flex items-center justify-between pt-1">
+                <button onclick="runEndpointTest('run-remote-tool', 'POST', '/agents/run-remote-tool')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-xs transition font-medium">Test Run Tool</button>
+                <span id="latency-run-remote-tool" class="text-[11px] font-mono text-slate-500"></span>
+              </div>
+              <pre id="output-run-remote-tool" class="hidden p-2.5 bg-slate-900 border border-slate-800/80 rounded text-[11px] font-mono text-slate-300 overflow-x-auto max-h-36 leading-relaxed"></pre>
+            </div>
+
+            <!-- C5: /agents/edit-file -->
+            <div class="p-4 rounded-xl border border-slate-800 bg-slate-950 space-y-3">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400">POST</span>
+                  <span class="font-mono text-xs font-semibold text-white">/agents/edit-file</span>
+                </div>
+                <span id="badge-edit-file" class="text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">Untested</span>
+              </div>
+              <p class="text-xs text-slate-400">Thao tác sửa file tự động qua agent (hỗ trợ dry_run diff).</p>
+              <div class="flex items-center justify-between pt-1">
+                <button onclick="runEndpointTest('edit-file', 'POST', '/agents/edit-file')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-xs transition font-medium">Test Dry Run</button>
+                <span id="latency-edit-file" class="text-[11px] font-mono text-slate-500"></span>
+              </div>
+              <pre id="output-edit-file" class="hidden p-2.5 bg-slate-900 border border-slate-800/80 rounded text-[11px] font-mono text-slate-300 overflow-x-auto max-h-36 leading-relaxed"></pre>
+            </div>
+
+            <!-- C6: /agents/check-tool-safety -->
+            <div class="p-4 rounded-xl border border-slate-800 bg-slate-950 space-y-3">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400">POST</span>
+                  <span class="font-mono text-xs font-semibold text-white">/agents/check-tool-safety</span>
+                </div>
+                <span id="badge-check-tool-safety" class="text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">Untested</span>
+              </div>
+              <p class="text-xs text-slate-400">Kiểm tra an toàn trước khi gọi tool (chặn path traversal & dangerous cmd).</p>
+              <div class="flex items-center justify-between pt-1">
+                <button onclick="runEndpointTest('check-tool-safety', 'POST', '/agents/check-tool-safety')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded text-xs transition font-medium">Test Safety</button>
+                <span id="latency-check-tool-safety" class="text-[11px] font-mono text-slate-500"></span>
+              </div>
+              <pre id="output-check-tool-safety" class="hidden p-2.5 bg-slate-900 border border-slate-800/80 rounded text-[11px] font-mono text-slate-300 overflow-x-auto max-h-36 leading-relaxed"></pre>
+            </div>
+
+            <!-- C7: /agents/revoke-tool-access -->
+            <div class="p-4 rounded-xl border border-slate-800 bg-slate-950 space-y-3">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400">POST</span>
+                  <span class="font-mono text-xs font-semibold text-white">/agents/revoke-tool-access</span>
+                </div>
+                <span id="badge-revoke-tool-access" class="text-[11px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">Untested</span>
+              </div>
+              <p class="text-xs text-slate-400">Thu hồi quyền gọi tool cho session hoặc toàn cục.</p>
+              <div class="flex items-center justify-between pt-1">
+                <button onclick="runEndpointTest('revoke-tool-access', 'POST', '/agents/revoke-tool-access')" class="px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 rounded text-xs transition font-medium">Test Revoke</button>
+                <span id="latency-revoke-tool-access" class="text-[11px] font-mono text-slate-500"></span>
+              </div>
+              <pre id="output-revoke-tool-access" class="hidden p-2.5 bg-slate-900 border border-slate-800/80 rounded text-[11px] font-mono text-slate-300 overflow-x-auto max-h-36 leading-relaxed"></pre>
+            </div>
           </div>
         </div>
       </div>
@@ -533,82 +757,270 @@
           <p class="text-xs text-slate-400 mt-1">Available Serverless and Streamable HTTP endpoints on this instance.</p>
         </div>
 
-        <div class="space-y-3">
-          <div class="p-4 rounded-lg border border-slate-800 bg-slate-950 flex items-center justify-between">
-            <div class="space-y-1">
-              <div class="flex items-center gap-2">
-                <span class="text-xs font-bold px-2 py-0.5 rounded bg-blue-500/20 text-blue-400">POST</span>
-                <span class="font-mono text-xs text-white">/agents/codebase-retrieval</span>
+        <div class="space-y-6">
+          <!-- Core Services -->
+          <div class="space-y-3">
+            <h4 class="text-xs font-semibold uppercase text-indigo-400 tracking-wider flex items-center gap-1.5">
+              <i class="fa-solid fa-server"></i>
+              <span>Core Server & Protocol Endpoints</span>
+            </h4>
+            <div class="space-y-2">
+              <div class="p-3.5 rounded-lg border border-slate-800 bg-slate-950 flex items-center justify-between">
+                <div class="space-y-1">
+                  <div class="flex items-center gap-2">
+                    <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400">POST</span>
+                    <span class="font-mono text-xs text-white">/api/search</span>
+                  </div>
+                  <p class="text-xs text-slate-400">REST API hybrid retrieval: Vector + BM25, graph expansion, and token-aware context packing.</p>
+                </div>
+                <span class="text-[11px] text-slate-500 font-mono">REST JSON</span>
               </div>
-              <p class="text-xs text-slate-400">Semantic Codebase Retrieval for Augment Code extension (injection node -20) & AI Agents.</p>
+
+              <div class="p-3.5 rounded-lg border border-slate-800 bg-slate-950 flex items-center justify-between">
+                <div class="space-y-1">
+                  <div class="flex items-center gap-2">
+                    <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">POST / GET</span>
+                    <span class="font-mono text-xs text-white">/api/mcp</span>
+                  </div>
+                  <p class="text-xs text-slate-400">Model Context Protocol (JSON-RPC 2.0) Streamable HTTP & SSE transport for IDEs & AI Agents.</p>
+                </div>
+                <span class="text-[11px] text-slate-500 font-mono">MCP Protocol</span>
+              </div>
+
+              <div class="p-3.5 rounded-lg border border-slate-800 bg-slate-950 flex items-center justify-between">
+                <div class="space-y-1">
+                  <div class="flex items-center gap-2">
+                    <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400">GET</span>
+                    <span class="font-mono text-xs text-white">/api/health</span>
+                  </div>
+                  <p class="text-xs text-slate-400">Instance health check reporting cloud readiness, database connection (pgvector/LanceDB), and latency.</p>
+                </div>
+                <span class="text-[11px] text-slate-500 font-mono">Health Probe</span>
+              </div>
+
+              <div class="p-3.5 rounded-lg border border-slate-800 bg-slate-950 flex items-center justify-between">
+                <div class="space-y-1">
+                  <div class="flex items-center gap-2">
+                    <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">GET / POST / DELETE</span>
+                    <span class="font-mono text-xs text-white">/api/tokens</span>
+                  </div>
+                  <p class="text-xs text-slate-400">Manage, generate, and revoke client API authentication tokens for MCP & REST requests.</p>
+                </div>
+                <span class="text-[11px] text-slate-500 font-mono">Auth Tokens</span>
+              </div>
             </div>
-            <span class="text-xs text-slate-500 font-mono">Agent Retrieval</span>
           </div>
 
-          <div class="p-4 rounded-lg border border-slate-800 bg-slate-950 flex items-center justify-between">
-            <div class="space-y-1">
-              <div class="flex items-center gap-2">
-                <span class="text-xs font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400">GET / POST</span>
-                <span class="font-mono text-xs text-white">/get-models & /augment/get-models</span>
+          <!-- Group B: Context & Blob Sync -->
+          <div class="space-y-3">
+            <h4 class="text-xs font-semibold uppercase text-indigo-400 tracking-wider flex items-center gap-1.5">
+              <i class="fa-solid fa-arrows-rotate"></i>
+              <span>Group B: File / Blob / Context Sync (9 Endpoints)</span>
+            </h4>
+            <div class="space-y-2">
+              <div class="p-3.5 rounded-lg border border-slate-800 bg-slate-950 flex items-center justify-between">
+                <div class="space-y-1">
+                  <div class="flex items-center gap-2">
+                    <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">GET / POST</span>
+                    <span class="font-mono text-xs text-white">/context-canvas/list</span>
+                  </div>
+                  <p class="text-xs text-slate-400">Quản lý Context Canvas (Augment Code context canvas node discovery).</p>
+                </div>
+                <span class="text-[11px] text-slate-500 font-mono">Context Canvas</span>
               </div>
-              <p class="text-xs text-slate-400">Health probe and model discovery compatibility endpoint for Augment Code.</p>
+
+              <div class="p-3.5 rounded-lg border border-slate-800 bg-slate-950 flex items-center justify-between">
+                <div class="space-y-1">
+                  <div class="flex items-center gap-2">
+                    <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">GET / POST</span>
+                    <span class="font-mono text-xs text-white">/search-external-sources</span>
+                  </div>
+                  <p class="text-xs text-slate-400">Tìm kiếm nguồn tài nguyên ngoài / web search probe.</p>
+                </div>
+                <span class="text-[11px] text-slate-500 font-mono">External Sources</span>
+              </div>
+
+              <div class="p-3.5 rounded-lg border border-slate-800 bg-slate-950 flex items-center justify-between">
+                <div class="space-y-1">
+                  <div class="flex items-center gap-2">
+                    <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400">POST</span>
+                    <span class="font-mono text-xs text-white">/batch-upload</span>
+                  </div>
+                  <p class="text-xs text-slate-400">Upload các blob file / context codebase đồng loạt lên hệ thống.</p>
+                </div>
+                <span class="text-[11px] text-slate-500 font-mono">Sync</span>
+              </div>
+
+              <div class="p-3.5 rounded-lg border border-slate-800 bg-slate-950 flex items-center justify-between">
+                <div class="space-y-1">
+                  <div class="flex items-center gap-2">
+                    <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">GET / POST</span>
+                    <span class="font-mono text-xs text-white">/checkpoint-blobs</span>
+                  </div>
+                  <p class="text-xs text-slate-400">Tạo và quản lý checkpoint blobs phục vụ versioning ngữ cảnh và incremental sync.</p>
+                </div>
+                <span class="text-[11px] text-slate-500 font-mono">Sync</span>
+              </div>
+
+              <div class="p-3.5 rounded-lg border border-slate-800 bg-slate-950 flex items-center justify-between">
+                <div class="space-y-1">
+                  <div class="flex items-center gap-2">
+                    <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400">POST</span>
+                    <span class="font-mono text-xs text-white">/find-missing</span>
+                  </div>
+                  <p class="text-xs text-slate-400">Tìm kiếm và bù đắp các blob ngữ cảnh bị thiếu trong kho lưu trữ.</p>
+                </div>
+                <span class="text-[11px] text-slate-500 font-mono">Sync</span>
+              </div>
+
+              <div class="p-3.5 rounded-lg border border-slate-800 bg-slate-950 flex items-center justify-between">
+                <div class="space-y-1">
+                  <div class="flex items-center gap-2">
+                    <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400">POST</span>
+                    <span class="font-mono text-xs text-white">/save-chat</span>
+                  </div>
+                  <p class="text-xs text-slate-400">Lưu phiên chat / ngữ cảnh trao đổi của AI Agent.</p>
+                </div>
+                <span class="text-[11px] text-slate-500 font-mono">Chat Context</span>
+              </div>
+
+              <div class="p-3.5 rounded-lg border border-slate-800 bg-slate-950 flex items-center justify-between">
+                <div class="space-y-1">
+                  <div class="flex items-center gap-2">
+                    <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">GET / POST</span>
+                    <span class="font-mono text-xs text-white">/indexed-commits/get-latest-blobset</span>
+                  </div>
+                  <p class="text-xs text-slate-400">Quản lý và lấy blobset commit đã index gần nhất.</p>
+                </div>
+                <span class="text-[11px] text-slate-500 font-mono">Commit Index</span>
+              </div>
+
+              <div class="p-3.5 rounded-lg border border-slate-800 bg-slate-950 flex items-center justify-between">
+                <div class="space-y-1">
+                  <div class="flex items-center gap-2">
+                    <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400">POST</span>
+                    <span class="font-mono text-xs text-white">/indexed-commits/register-blobset</span>
+                  </div>
+                  <p class="text-xs text-slate-400">Đăng ký blobset commit mới khi có thay đổi code trong kho lưu trữ.</p>
+                </div>
+                <span class="text-[11px] text-slate-500 font-mono">Commit Index</span>
+              </div>
+
+              <div class="p-3.5 rounded-lg border border-slate-800 bg-slate-950 flex items-center justify-between">
+                <div class="space-y-1">
+                  <div class="flex items-center gap-2">
+                    <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">GET / POST</span>
+                    <span class="font-mono text-xs text-white">/chat/exchanges/list</span>
+                  </div>
+                  <p class="text-xs text-slate-400">Lấy danh sách lịch sử trao đổi giữa user và agent theo session.</p>
+                </div>
+                <span class="text-[11px] text-slate-500 font-mono">Chat History</span>
+              </div>
             </div>
-            <span class="text-xs text-slate-500 font-mono">Compatibility</span>
           </div>
 
-          <div class="p-4 rounded-lg border border-slate-800 bg-slate-950 flex items-center justify-between">
-            <div class="space-y-1">
-              <div class="flex items-center gap-2">
-                <span class="text-xs font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400">GET / POST</span>
-                <span class="font-mono text-xs text-white">/context-canvas/list</span>
+          <!-- Group C: Agents & Codebase Tools -->
+          <div class="space-y-3">
+            <h4 class="text-xs font-semibold uppercase text-purple-400 tracking-wider flex items-center gap-1.5">
+              <i class="fa-solid fa-robot"></i>
+              <span>Group C: Agents / Tools (7 Endpoints)</span>
+            </h4>
+            <div class="space-y-2">
+              <div class="p-3.5 rounded-lg border border-slate-800 bg-slate-950 flex items-center justify-between">
+                <div class="space-y-1">
+                  <div class="flex items-center gap-2">
+                    <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400">POST / GET</span>
+                    <span class="font-mono text-xs text-white">/agents/codebase-retrieval</span>
+                  </div>
+                  <p class="text-xs text-slate-400">Semantic codebase retrieval (chế độ packed context / overview mode).</p>
+                </div>
+                <span class="text-[11px] text-slate-500 font-mono">Agent Retrieval</span>
               </div>
-              <p class="text-xs text-slate-400">Context canvas node discovery for Augment Code integration.</p>
+
+              <div class="p-3.5 rounded-lg border border-slate-800 bg-slate-950 flex items-center justify-between">
+                <div class="space-y-1">
+                  <div class="flex items-center gap-2">
+                    <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400">POST / GET</span>
+                    <span class="font-mono text-xs text-white">/agents/codebase-retrieval-raw</span>
+                  </div>
+                  <p class="text-xs text-slate-400">Semantic codebase retrieval trả về raw chunks thô không nén context.</p>
+                </div>
+                <span class="text-[11px] text-slate-500 font-mono">Raw Chunks</span>
+              </div>
+
+              <div class="p-3.5 rounded-lg border border-slate-800 bg-slate-950 flex items-center justify-between">
+                <div class="space-y-1">
+                  <div class="flex items-center gap-2">
+                    <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">GET / POST</span>
+                    <span class="font-mono text-xs text-white">/agents/list-remote-tools</span>
+                  </div>
+                  <p class="text-xs text-slate-400">Liệt kê danh sách remote tools và tool schemas khả dụng cho agent.</p>
+                </div>
+                <span class="text-[11px] text-slate-500 font-mono">Tools Discovery</span>
+              </div>
+
+              <div class="p-3.5 rounded-lg border border-slate-800 bg-slate-950 flex items-center justify-between">
+                <div class="space-y-1">
+                  <div class="flex items-center gap-2">
+                    <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400">POST</span>
+                    <span class="font-mono text-xs text-white">/agents/run-remote-tool</span>
+                  </div>
+                  <p class="text-xs text-slate-400">Thực thi remote tool qua agent proxy hoặc self-dispatch.</p>
+                </div>
+                <span class="text-[11px] text-slate-500 font-mono">Tool Execution</span>
+              </div>
+
+              <div class="p-3.5 rounded-lg border border-slate-800 bg-slate-950 flex items-center justify-between">
+                <div class="space-y-1">
+                  <div class="flex items-center gap-2">
+                    <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400">POST</span>
+                    <span class="font-mono text-xs text-white">/agents/edit-file</span>
+                  </div>
+                  <p class="text-xs text-slate-400">Thao tác sửa file tự động qua agent (hỗ trợ dry_run diff & safety validation).</p>
+                </div>
+                <span class="text-[11px] text-slate-500 font-mono">File Mutation</span>
+              </div>
+
+              <div class="p-3.5 rounded-lg border border-slate-800 bg-slate-950 flex items-center justify-between">
+                <div class="space-y-1">
+                  <div class="flex items-center gap-2">
+                    <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400">POST</span>
+                    <span class="font-mono text-xs text-white">/agents/check-tool-safety</span>
+                  </div>
+                  <p class="text-xs text-slate-400">Kiểm tra an toàn trước khi gọi tool (chặn path traversal, sensitive files & dangerous commands).</p>
+                </div>
+                <span class="text-[11px] text-slate-500 font-mono">Tool Safety</span>
+              </div>
+
+              <div class="p-3.5 rounded-lg border border-slate-800 bg-slate-950 flex items-center justify-between">
+                <div class="space-y-1">
+                  <div class="flex items-center gap-2">
+                    <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-400">POST</span>
+                    <span class="font-mono text-xs text-white">/agents/revoke-tool-access</span>
+                  </div>
+                  <p class="text-xs text-slate-400">Thu hồi quyền gọi tool cho một session cụ thể hoặc toàn cục.</p>
+                </div>
+                <span class="text-[11px] text-slate-500 font-mono">Permissions</span>
+              </div>
             </div>
-            <span class="text-xs text-slate-500 font-mono">Compatibility</span>
           </div>
 
-          <div class="p-4 rounded-lg border border-slate-800 bg-slate-950 flex items-center justify-between">
-            <div class="space-y-1">
-              <div class="flex items-center gap-2">
-                <span class="text-xs font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400">GET / POST</span>
-                <span class="font-mono text-xs text-white">/search-external-sources/</span>
+          <!-- Augment Compatibility -->
+          <div class="space-y-3">
+            <h4 class="text-xs font-semibold uppercase text-emerald-400 tracking-wider flex items-center gap-1.5">
+              <i class="fa-solid fa-compass"></i>
+              <span>Augment Code Discovery Probes</span>
+            </h4>
+            <div class="p-3.5 rounded-lg border border-slate-800 bg-slate-950 flex items-center justify-between">
+              <div class="space-y-1">
+                <div class="flex items-center gap-2">
+                  <span class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400">GET / POST</span>
+                  <span class="font-mono text-xs text-white">/get-models &amp; /augment/get-models</span>
+                </div>
+                <p class="text-xs text-slate-400">Health probe and model discovery compatibility endpoint for Augment Code extension.</p>
               </div>
-              <p class="text-xs text-slate-400">External sources documentation search probe (supports trailing slash).</p>
+              <span class="text-[11px] text-slate-500 font-mono">Compatibility</span>
             </div>
-            <span class="text-xs text-slate-500 font-mono">Compatibility</span>
-          </div>
-
-          <div class="p-4 rounded-lg border border-slate-800 bg-slate-950 flex items-center justify-between">
-            <div class="space-y-1">
-              <div class="flex items-center gap-2">
-                <span class="text-xs font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400">POST</span>
-                <span class="font-mono text-xs text-white">/api/mcp</span>
-              </div>
-              <p class="text-xs text-slate-400">JSON-RPC 2.0 endpoint for MCP Client tools discovery and execution.</p>
-            </div>
-            <span class="text-xs text-slate-500 font-mono">Streamable HTTP</span>
-          </div>
-
-          <div class="p-4 rounded-lg border border-slate-800 bg-slate-950 flex items-center justify-between">
-            <div class="space-y-1">
-              <div class="flex items-center gap-2">
-                <span class="text-xs font-bold px-2 py-0.5 rounded bg-blue-500/20 text-blue-400">POST</span>
-                <span class="font-mono text-xs text-white">/api/search</span>
-              </div>
-              <p class="text-xs text-slate-400">Programmatic REST retrieval with hybrid vector + BM25 and AST skeletonization.</p>
-            </div>
-            <span class="text-xs text-slate-500 font-mono">REST JSON</span>
-          </div>
-
-          <div class="p-4 rounded-lg border border-slate-800 bg-slate-950 flex items-center justify-between">
-            <div class="space-y-1">
-              <div class="flex items-center gap-2">
-                <span class="text-xs font-bold px-2 py-0.5 rounded bg-purple-500/20 text-purple-400">GET</span>
-                <span class="font-mono text-xs text-white">/api/health</span>
-              </div>
-              <p class="text-xs text-slate-400">Instance health check reporting cloud readiness, storage adapter and server latency.</p>
-            </div>
-            <span class="text-xs text-slate-500 font-mono">Health Probe</span>
           </div>
         </div>
       </div>
@@ -953,6 +1365,7 @@
       const badge = document.getElementById(`badge-${id}`);
       const latency = document.getElementById(`latency-${id}`);
       const output = document.getElementById(`output-${id}`);
+      if (!badge || !latency || !output) return false;
 
       badge.textContent = 'Testing...';
       badge.className = 'text-[11px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 animate-pulse font-mono';
@@ -983,12 +1396,59 @@
 
         const options = { method, headers };
         if (method === 'POST') {
-          if (id === 'codebase-retrieval') {
+          if (id === 'codebase-retrieval' || id === 'codebase-retrieval-raw') {
             const queryInput = document.getElementById('test-retrieval-query');
             const query = queryInput ? queryInput.value.trim() : 'Trace authentication flow';
             options.body = JSON.stringify({
               information_request: query || 'Trace authentication flow',
               repo_path: 'default'
+            });
+          } else if (id === 'batch-upload') {
+            options.body = JSON.stringify({
+              repo_path: 'default',
+              blobs: [{ hash: 'b1a2c3d4e5f6', path: 'src/index.ts', content: 'export const version = "1.0.0";' }]
+            });
+          } else if (id === 'checkpoint-blobs') {
+            options.body = JSON.stringify({
+              checkpoint_id: `chk_${Date.now()}`,
+              blobs: ['b1a2c3d4e5f6'],
+              message: 'Context snapshot checkpoint'
+            });
+          } else if (id === 'find-missing') {
+            options.body = JSON.stringify({
+              hashes: ['b1a2c3d4e5f6', 'f9e8d7c6b5a4']
+            });
+          } else if (id === 'save-chat') {
+            options.body = JSON.stringify({
+              session_id: `session_${Date.now()}`,
+              title: 'Context Sync Test',
+              messages: [{ role: 'user', content: 'What is Context Canvas?' }]
+            });
+          } else if (id === 'indexed-commits-register') {
+            options.body = JSON.stringify({
+              commit_hash: 'c0ffee1234567890abcdef',
+              blobset: ['b1a2c3d4e5f6']
+            });
+          } else if (id === 'run-remote-tool') {
+            options.body = JSON.stringify({
+              tool_name: 'health_check',
+              tool_args: { probe: true }
+            });
+          } else if (id === 'edit-file') {
+            options.body = JSON.stringify({
+              file_path: 'src/example.ts',
+              patch: '--- a/src/example.ts\n+++ b/src/example.ts\n@@ -1,1 +1,1 @@\n-// old\n+// new\n',
+              dry_run: true
+            });
+          } else if (id === 'check-tool-safety') {
+            options.body = JSON.stringify({
+              tool_name: 'codebase-retrieval',
+              parameters: { information_request: 'find auth handler' }
+            });
+          } else if (id === 'revoke-tool-access') {
+            options.body = JSON.stringify({
+              tool_name: 'terminal_exec',
+              session_id: 'demo_session'
             });
           } else {
             options.body = JSON.stringify({});
@@ -1035,12 +1495,29 @@
       btn.disabled = true;
       btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i><span>Running Tests...</span>';
 
-      const results = await Promise.all([
-        runEndpointTest('get-models', 'GET', '/get-models'),
-        runEndpointTest('context-canvas', 'GET', '/context-canvas/list'),
-        runEndpointTest('search-external', 'GET', '/search-external-sources/'),
-        runEndpointTest('codebase-retrieval', 'POST', '/agents/codebase-retrieval')
-      ]);
+      const endpointsToTest = [
+        { id: 'get-models', method: 'GET', path: '/get-models' },
+        { id: 'context-canvas', method: 'GET', path: '/context-canvas/list' },
+        { id: 'search-external', method: 'GET', path: '/search-external-sources' },
+        { id: 'batch-upload', method: 'POST', path: '/batch-upload' },
+        { id: 'checkpoint-blobs', method: 'POST', path: '/checkpoint-blobs' },
+        { id: 'find-missing', method: 'POST', path: '/find-missing' },
+        { id: 'save-chat', method: 'POST', path: '/save-chat' },
+        { id: 'indexed-commits-get', method: 'GET', path: '/indexed-commits/get-latest-blobset' },
+        { id: 'indexed-commits-register', method: 'POST', path: '/indexed-commits/register-blobset' },
+        { id: 'chat-exchanges', method: 'GET', path: '/chat/exchanges/list' },
+        { id: 'codebase-retrieval', method: 'POST', path: '/agents/codebase-retrieval' },
+        { id: 'codebase-retrieval-raw', method: 'POST', path: '/agents/codebase-retrieval-raw' },
+        { id: 'list-remote-tools', method: 'GET', path: '/agents/list-remote-tools' },
+        { id: 'run-remote-tool', method: 'POST', path: '/agents/run-remote-tool' },
+        { id: 'edit-file', method: 'POST', path: '/agents/edit-file' },
+        { id: 'check-tool-safety', method: 'POST', path: '/agents/check-tool-safety' },
+        { id: 'revoke-tool-access', method: 'POST', path: '/agents/revoke-tool-access' }
+      ];
+
+      const results = await Promise.all(
+        endpointsToTest.map(ep => runEndpointTest(ep.id, ep.method, ep.path))
+      );
 
       const passed = results.filter(Boolean).length;
       const total = results.length;
@@ -1053,10 +1530,10 @@
 
       if (passed === total) {
         banner.className = 'p-3 rounded-lg border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 text-xs flex items-center justify-between';
-        text.innerHTML = '<span class="flex items-center gap-2"><i class="fa-solid fa-circle-check text-emerald-400"></i> All 4 endpoints operational!</span>';
+        text.innerHTML = `<span class="flex items-center gap-2"><i class="fa-solid fa-circle-check text-emerald-400"></i> All ${total} endpoints operational!</span>`;
       } else {
         banner.className = 'p-3 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-300 text-xs flex items-center justify-between';
-        text.innerHTML = '<span class="flex items-center gap-2"><i class="fa-solid fa-triangle-exclamation text-amber-400"></i> Some endpoints returned non-200 responses.</span>';
+        text.innerHTML = `<span class="flex items-center gap-2"><i class="fa-solid fa-triangle-exclamation text-amber-400"></i> ${total - passed} of ${total} endpoint(s) returned non-200 responses.</span>`;
       }
 
       btn.disabled = false;

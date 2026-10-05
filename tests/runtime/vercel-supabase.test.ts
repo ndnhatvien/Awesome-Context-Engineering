@@ -152,6 +152,31 @@ test('Vercel API: /api/health 返回健康状态与 cloudReady 标识', async ()
   assert.ok(htmlRes.data.includes('Retrieval Playground'));
 });
 
+test('Vercel API: Group B & Group C context sync and agent tools routes', async () => {
+  const routes = [
+    '/context-canvas/list',
+    '/search-external-sources',
+    '/batch-upload',
+    '/checkpoint-blobs',
+    '/find-missing',
+    '/save-chat',
+    '/indexed-commits/get-latest-blobset',
+    '/indexed-commits/register-blobset',
+    '/chat/exchanges/list',
+    '/agents/list-remote-tools',
+    '/agents/check-tool-safety',
+    '/agents/revoke-tool-access',
+    '/agents/run-remote-tool',
+    '/agents/edit-file',
+  ];
+
+  for (const route of routes) {
+    const { req, res } = createMockReqRes({ method: 'GET', url: route });
+    await healthHandler(req, res);
+    assert.equal(res.statusCode, 200, `Expected 200 for route ${route}`);
+  }
+});
+
 test('Vercel API: /api/mcp 支持 OPTIONS 与 GET 工具发现', async () => {
   // 1. OPTIONS CORS Preflight
   const { req: optReq, res: optRes } = createMockReqRes({ method: 'OPTIONS' });
