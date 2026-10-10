@@ -196,7 +196,9 @@ export async function withLock<T>(
   const acquired = await acquireLock(projectId, operation, timeoutMs);
 
   if (!acquired) {
-    throw new Error(`无法获取项目锁 (${projectId.slice(0, 10)})，其他进程正在操作索引`);
+    throw new Error(
+      `Failed to acquire project lock (${projectId.slice(0, 10)}): another process is currently indexing`,
+    );
   }
 
   try {

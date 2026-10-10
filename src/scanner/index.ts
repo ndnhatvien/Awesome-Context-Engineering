@@ -266,7 +266,7 @@ export async function scan(rootPath: string, options: ScanOptions = {}): Promise
       const hasVectorWorkCandidates =
         needsVectorIndex.length > 0 || deletedPaths.length > 0 || healingFilePaths.length > 0;
       if (hasVectorWorkCandidates) {
-        options.onProgress?.(45, 100, '正在准备向量索引...');
+        options.onProgress?.(45, 100, 'Preparing vector index...');
       }
 
       let healingFiles: ProcessResult[] = [];
@@ -314,16 +314,24 @@ export async function scan(rootPath: string, options: ScanOptions = {}): Promise
           (r) => (r.status === 'added' || r.status === 'modified') && r.chunks.length > 0,
         ).length;
         if (embeddingFileCount > 0) {
-          options.onProgress?.(45, 100, `正在生成向量嵌入... (${embeddingFileCount} 个文件)`);
+          options.onProgress?.(
+            45,
+            100,
+            `Generating vector embeddings... (${embeddingFileCount} files)`,
+          );
         } else {
-          options.onProgress?.(45, 100, '正在同步向量索引状态...');
+          options.onProgress?.(45, 100, 'Syncing vector index state...');
         }
 
         // 传递进度回调给 indexer（embedding API 调用是真正的耗时操作）
         const indexStats = await indexer.indexFiles(db, allToIndex, (completed, total) => {
           // 将 embedding 批次进度映射到 45-99 区间（保留 100 给最终完成）
           const progress = 45 + Math.floor((completed / total) * 54);
-          options.onProgress?.(progress, 100, `正在生成向量嵌入... (${completed}/${total} 批次)`);
+          options.onProgress?.(
+            progress,
+            100,
+            `Generating vector embeddings... (${completed}/${total} batches)`,
+          );
         });
         stats.vectorIndex = {
           indexed: indexStats.indexed,
@@ -334,7 +342,7 @@ export async function scan(rootPath: string, options: ScanOptions = {}): Promise
     }
 
     // 报告完成
-    options.onProgress?.(100, 100, '索引完成');
+    options.onProgress?.(100, 100, 'Indexing completed');
 
     return stats;
   } finally {

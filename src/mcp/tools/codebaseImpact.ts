@@ -26,7 +26,7 @@ export async function handleCodebaseImpact(
 ): Promise<{ content: Array<{ type: 'text'; text: string }>; isError?: boolean }> {
   const { repo_path, target, mode, depth, tests_only, include_paths } = input;
 
-  logger.info({ repo_path, target, mode, depth }, 'codebase-impact 工具调用');
+  logger.info({ repo_path, target, mode, depth }, 'codebase-impact tool called');
 
   try {
     const projectId = generateProjectId(repo_path);
@@ -153,7 +153,7 @@ ${impactPath.path.join(' → ')}
     }
   } catch (error) {
     const err = error as { message?: string; stack?: string };
-    logger.error({ error: err.message, stack: err.stack }, 'codebase-impact 工具失败');
+    logger.error({ error: err.message, stack: err.stack }, 'codebase-impact tool failed');
     return {
       content: [
         {

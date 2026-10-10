@@ -348,7 +348,7 @@ Use this when a search result returned a skeletonized function or class and you 
  * 启动 MCP 服务器
  */
 export async function startMcpServer(): Promise<void> {
-  logger.info({ name: SERVER_NAME }, '启动 MCP 服务器');
+  logger.info({ name: SERVER_NAME }, 'Starting MCP server');
 
   const server = new Server(
     {
@@ -364,14 +364,14 @@ export async function startMcpServer(): Promise<void> {
 
   // 注册工具列表处理器
   server.setRequestHandler(ListToolsRequestSchema, async () => {
-    logger.debug('收到 list_tools 请求');
+    logger.debug('Received list_tools request');
     return { tools: TOOLS };
   });
 
   // 注册工具调用处理器
   server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
     const { name, arguments: args } = request.params;
-    logger.info({ tool: name }, '收到 call_tool 请求');
+    logger.info({ tool: name }, 'Received call_tool request');
 
     try {
       return await executeWithProgressHeartbeat(
@@ -410,7 +410,7 @@ export async function startMcpServer(): Promise<void> {
       );
     } catch (err) {
       const error = err as { message?: string; stack?: string };
-      logger.error({ error: error.message, stack: error.stack, tool: name }, '工具调用失败');
+      logger.error({ error: error.message, stack: error.stack, tool: name }, 'Tool call failed');
       return {
         content: [
           {
@@ -425,6 +425,6 @@ export async function startMcpServer(): Promise<void> {
 
   // 启动 stdio 传输
   const transport = new StdioServerTransport();
-  logger.info('MCP 服务器已启动，等待连接...');
+  logger.info('MCP server started, awaiting connections...');
   await server.connect(transport);
 }

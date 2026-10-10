@@ -68,7 +68,7 @@ test('include/exclude 交集应报错', () => {
         include_languages: ['typescript', 'python'],
         exclude_languages: ['python'],
       }),
-    /交集.*python/,
+    /(?:overlap|交集).*python/,
   );
 });
 
@@ -90,7 +90,7 @@ test('无参数时冲突校验不报错', () => {
 test('未知语言值应报错', () => {
   assert.throws(
     () => validateLanguageWhitelist(['typescript', 'fake_lang']),
-    /未知语言值.*fake_lang/,
+    /(?:Unknown language|未知语言值).*fake_lang/,
   );
 });
 

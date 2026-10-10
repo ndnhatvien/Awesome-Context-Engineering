@@ -147,7 +147,9 @@ export function validateLanguageFilterConflicts(config: LanguageFilterConfig): v
   if (include_languages && exclude_languages) {
     const intersection = include_languages.filter((lang) => exclude_languages.includes(lang));
     if (intersection.length > 0) {
-      throw new Error(`include_languages 与 exclude_languages 有交集: ${intersection.join(', ')}`);
+      throw new Error(
+        `include_languages and exclude_languages cannot overlap: ${intersection.join(', ')}`,
+      );
     }
   }
 }
@@ -165,7 +167,7 @@ export function validateLanguageWhitelist(languages?: string[]): void {
   const invalidLangs = languages.filter((lang) => !allowedSet.has(lang));
 
   if (invalidLangs.length > 0) {
-    throw new Error(`未知语言值: ${invalidLangs.join(', ')}`);
+    throw new Error(`Unknown language value(s): ${invalidLangs.join(', ')}`);
   }
 }
 
@@ -176,13 +178,13 @@ export function validateLanguageWhitelist(languages?: string[]): void {
  */
 export function normalizeRepoPath(repoPath: string): string {
   if (!path.isAbsolute(repoPath)) {
-    throw new Error('repo_path 必须是绝对路径');
+    throw new Error('repo_path must be an absolute path');
   }
 
   const resolvedPath = path.resolve(repoPath);
   const stat = fs.statSync(resolvedPath);
   if (!stat.isDirectory()) {
-    throw new Error('repo_path 必须是存在的目录');
+    throw new Error('repo_path must be an existing directory');
   }
 
   return resolvedPath;
@@ -309,11 +311,11 @@ async function ensureIndexed(
       if (!wasIndexed) {
         logger.info(
           { repoPath, projectId: projectId.slice(0, 10) },
-          '代码库未初始化，开始首次索引...',
+          'Repository not indexed, starting initial indexing...',
         );
-        onProgress?.(0, 100, '代码库未索引，开始首次索引...');
+        onProgress?.(0, 100, 'Repository not indexed, starting initial indexing...');
       } else {
-        logger.debug({ projectId: projectId.slice(0, 10) }, '执行增量索引...');
+        logger.debug({ projectId: projectId.slice(0, 10) }, 'Executing incremental indexing...');
       }
 
       const startTime = Date.now();
@@ -331,7 +333,7 @@ async function ensureIndexed(
           vectorIndex: stats.vectorIndex,
           elapsedMs: elapsed,
         },
-        '索引完成',
+        'Indexing completed',
       );
     },
     INDEX_LOCK_TIMEOUT_MS,
@@ -459,7 +461,7 @@ export async function handleCodebaseRetrieval(
   const { SearchService } = await import('../../search/SearchService.js');
 
   // 5. 创建 SearchService 实例（使用 Zen Config，叠加可选 cost_aware_ranking）
-  onProgress?.(70, 100, '初始化语义检索引擎...');
+  onProgress?.(70, 100, 'Initializing semantic search engine...');
   const effectiveConfig: Partial<SearchConfig> = {
     ...configOverride,
     ...(cost_aware_ranking !== undefined ? { enableCostModelRanking: cost_aware_ranking } : {}),
@@ -468,10 +470,10 @@ export async function handleCodebaseRetrieval(
 
   try {
     await service.init();
-    logger.debug('SearchService 初始化完成');
+    logger.debug('SearchService initialized');
 
     // 6. 执行搜索
-    onProgress?.(80, 100, '执行混合搜索与上下文扩展...');
+    onProgress?.(80, 100, 'Executing hybrid search and context expansion...');
     const contextPack = await service.buildContextPack(channels.rerankQuery, channels, {
       filePathFilter,
       languageFilter,
@@ -488,10 +490,10 @@ export async function handleCodebaseRetrieval(
             source: s.source,
           })),
         },
-        '搜索 seeds',
+        'Search seeds',
       );
     } else {
-      logger.debug('搜索无 seeds 命中');
+      logger.debug('Search produced no seed hits');
     }
 
     // 详细日志：扩展结果
@@ -505,7 +507,7 @@ export async function handleCodebaseRetrieval(
             score: e.score.toFixed(4),
           })),
         },
-        '扩展结果 (前5)',
+        'Expansion results (top 5)',
       );
     }
 
@@ -523,7 +525,7 @@ export async function handleCodebaseRetrieval(
         })),
         timingMs: contextPack.debug?.timingMs,
       },
-      'codebase-retrieval 完成',
+      'codebase-retrieval completed',
     );
 
     // 7. 写入隐式反馈事件（P4）
@@ -552,7 +554,7 @@ export async function handleCodebaseRetrieval(
                 file: signal.targetFilePath,
               })),
             },
-            'MCP 隐式反馈信号已记录',
+            'MCP implicit feedback signal recorded',
           );
         }
       } finally {
@@ -560,11 +562,11 @@ export async function handleCodebaseRetrieval(
       }
     } catch (err) {
       const error = err as { message?: string };
-      logger.warn({ error: error.message }, '写入隐式反馈失败（不影响主流程）');
+      logger.warn({ error: error.message }, 'Failed to record implicit feedback (non-fatal)');
     }
 
     // 8. 格式化输出
-    onProgress?.(95, 100, '格式化检索结果...');
+    onProgress?.(95, 100, 'Formatting retrieval results...');
     let rawCodeBlocks: RawCodeBlock[] = [];
     if (responseMode === 'raw') {
       rawCodeBlocks = await collectRawCodeBlocks(projectId, contextPack.seeds, rawTopN);
@@ -600,7 +602,10 @@ export async function handleCodebaseRetrieval(
         db.close();
       }
     } catch (err) {
-      logger.debug({ error: (err as Error).message }, '附加关联 Agent Memory 失败（不影响主流程）');
+      logger.debug(
+        { error: (err as Error).message },
+        'Failed to attach related Agent Memory (non-fatal)',
+      );
     }
 
     // 10. 计算与记录 Token 节约账本 (CCE Savings Ledger) 并附加状态摘要
@@ -649,10 +654,13 @@ export async function handleCodebaseRetrieval(
         db.close();
       }
     } catch (err) {
-      logger.debug({ error: (err as Error).message }, '记录 Token 节约账本失败（不影响主流程）');
+      logger.debug(
+        { error: (err as Error).message },
+        'Failed to record token savings ledger (non-fatal)',
+      );
     }
 
-    onProgress?.(100, 100, '检索完成');
+    onProgress?.(100, 100, 'Retrieval completed');
     return response;
   } finally {
     await service.close();
@@ -687,10 +695,10 @@ function formatMcpResponse(
         : '_No raw code blocks found after stage-2 extraction._';
 
     body = [
-      '## Stage 1: Retrieval定位',
+      '## Stage 1: Retrieval Location',
       seedBlocks || '_No seeds_',
       '',
-      `## Stage 2: Top ${options.rawTopN} 原码块`,
+      `## Stage 2: Top ${options.rawTopN} Raw Code Blocks`,
       rawBlocks,
     ].join('\n');
   } else {
@@ -960,34 +968,34 @@ function formatEnvMissingResponse(missingVars: string[]): {
 } {
   const configPath = getDefaultEnvFilePath();
 
-  const text = `## ⚠️ 配置缺失
+  const text = `## ⚠️ Configuration Missing
 
-ACE 需要配置 Embedding API 才能工作。
+ACE requires Embedding API configuration to work.
 
-### 缺失的环境变量
+### Missing Environment Variables
 ${missingVars.map((v) => `- \`${v}\``).join('\n')}
 
-### 配置步骤
+### Configuration Steps
 
-已自动创建配置文件：\`${configPath}\`
+Configuration file created automatically: \`${configPath}\`
 
-请编辑该文件，填写你的 API Key：
+Please edit the file and fill in your API Key:
 
 \`\`\`bash
-# Embedding API 配置（必需）
-# 推荐使用 KEYS（逗号分隔多 key），方便后期扩展限速轮转
+# Embedding API configuration (Required)
+# Recommended to use KEYS (comma-separated for rate limit rotation)
 EMBEDDINGS_API_KEYS=your-api-key-here
-# 单 key 兼容写法（同时配置时 KEYS 优先）
+# Single key compatibility (KEYS takes precedence when both set)
 # EMBEDDINGS_API_KEY=your-api-key-here
 
-# Reranker 配置（必需）
-# 推荐使用 KEYS（逗号分隔多 key），方便后期扩展限速轮转
+# Reranker configuration (Required)
+# Recommended to use KEYS (comma-separated for rate limit rotation)
 RERANK_API_KEYS=your-api-key-here
-# 单 key 兼容写法（同时配置时 KEYS 优先）
+# Single key compatibility (KEYS takes precedence when both set)
 # RERANK_API_KEY=your-api-key-here
 \`\`\`
 
-保存文件后重新调用此工具即可。
+Save the file and call this tool again.
 `;
 
   return {

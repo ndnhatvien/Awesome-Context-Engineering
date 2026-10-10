@@ -204,7 +204,7 @@ export async function handleAgentMemory(
     }
   } catch (err) {
     const error = err as Error;
-    logger.error({ error: error.message, action }, 'Agent Memory 操作失败');
+    logger.error({ error: error.message, action }, 'Agent Memory operation failed');
     return {
       content: [{ type: 'text', text: `Error executing agent-memory: ${error.message}` }],
       isError: true,

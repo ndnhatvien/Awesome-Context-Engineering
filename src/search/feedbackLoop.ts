@@ -273,7 +273,7 @@ export function recordRetrievalEvent(
 
   const query = input.query.trim();
   if (!query) {
-    throw new Error('query 不能为空');
+    throw new Error('query cannot be empty');
   }
 
   const technicalTerms = input.technicalTerms?.map((item) => item.trim()).filter(Boolean) || [];

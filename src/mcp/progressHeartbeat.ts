@@ -133,7 +133,7 @@ export async function executeWithProgressHeartbeat<T>(
       }
       logger.debug(
         { error: (err as Error)?.message, tool: toolName, progressToken, isFabricated },
-        '发送进度通知失败，停止后续心跳通知（不影响工具主流程）',
+        'Failed to send progress notification, stopping heartbeat ticker (non-fatal)',
       );
     }
   };
